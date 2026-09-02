@@ -39,7 +39,7 @@ export async function analyzeAnswer(payload: AnalyzePayload): Promise<AnswerAnal
         ...payload,
         answer_id: answerId,
       }),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!res.ok) {
@@ -66,7 +66,7 @@ export async function getNextAction(payload: NextActionPayload): Promise<NextAct
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!res.ok) {
