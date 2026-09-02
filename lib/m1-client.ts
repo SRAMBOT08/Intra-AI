@@ -5,8 +5,8 @@ import {
   NextAction,
 } from '@/types/echosphere';
 
-const INTEL_URL = process.env.M1_INTELLIGENCE_URL || 'http://localhost:4005';
-const ORCH_URL = process.env.M1_ORCHESTRATOR_URL || 'http://localhost:4004';
+const getIntelUrl = () => process.env.M1_INTELLIGENCE_URL || 'http://localhost:4005';
+const getOrchUrl = () => process.env.M1_ORCHESTRATOR_URL || 'http://localhost:4004';
 
 export interface AnalyzePayload {
   question: string;
@@ -29,18 +29,17 @@ export interface NextActionPayload {
  * Call Member 1 Interview Intelligence service on :4005.
  * Analyzes candidate utterance against target competencies.
  */
-export async function callM1Analyze(payload: AnalyzePayload): Promise<AnswerAnalysis> {
+export async function analyzeAnswer(payload: AnalyzePayload): Promise<AnswerAnalysis> {
   const answerId = payload.answer_id || `ANS-${Date.now()}`;
   try {
-    const res = await fetch(`${INTEL_URL}/v1/interview-intelligence/analyze`, {
+    const res = await fetch(`${getIntelUrl()}/v1/interview-intelligence/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...payload,
         answer_id: answerId,
       }),
-      // Short timeout to maintain snappy voice responsiveness
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!res.ok) {
@@ -61,13 +60,13 @@ export async function callM1Analyze(payload: AnalyzePayload): Promise<AnswerAnal
  * Call Member 1 Meta-Orchestrator service on :4004.
  * Evaluates context and analysis to produce NextAction.
  */
-export async function callM1NextAction(payload: NextActionPayload): Promise<NextAction> {
+export async function getNextAction(payload: NextActionPayload): Promise<NextAction> {
   try {
-    const res = await fetch(`${ORCH_URL}/v1/meta-orchestrator/next-action`, {
+    const res = await fetch(`${getOrchUrl()}/v1/meta-orchestrator/next-action`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!res.ok) {
@@ -83,6 +82,10 @@ export async function callM1NextAction(payload: NextActionPayload): Promise<Next
     return createFallbackNextAction(payload);
   }
 }
+
+// Aliases for backward compatibility
+export const callM1Analyze = analyzeAnswer;
+export const callM1NextAction = getNextAction;
 
 /**
  * Safe fallback for Intelligence failure (preserves conversational flow without inventing high confidence).
