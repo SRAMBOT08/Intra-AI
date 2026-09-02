@@ -65,9 +65,8 @@ class NextAction(BaseModel):
     @classmethod
     def validate_handoff_text(cls, v: Optional[str], info) -> Optional[str]:
         action = info.data.get("action")
-        if action == ActionType.SWITCH_AGENT and not v:
-            # We enforce that handoffs provide transition text
-            pass
+        if action == ActionType.SWITCH_AGENT and (not v or not v.strip()):
+            raise ValueError("SWITCH_AGENT action requires non-empty handoff_transition_text.")
         return v
 
 

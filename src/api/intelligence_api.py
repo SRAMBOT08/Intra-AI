@@ -1,11 +1,15 @@
 """FastAPI service for Interview Intelligence (Port 4005)."""
 
+import logging
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.schemas import AnalyzeRequest, HealthResponse
 from src.domain.models import AnswerAnalysis
-from src.intelligence.engine import DEFAULT_INTELLIGENCE_ENGINE, InterviewIntelligenceEngine
+from src.intelligence.engine import DEFAULT_INTELLIGENCE_ENGINE
+from src.intelligence.llm_client import LLMProviderError
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="EchoSphere Interview Intelligence Service",
@@ -44,10 +48,23 @@ async def analyze_answer(request: AnalyzeRequest) -> AnswerAnalysis:
             candidate_profile_summary=request.candidate_profile_summary,
         )
         return analysis
+    except LLMProviderError as e:
+        logger.error("LLM Provider failure for answer_id=%s: %s", request.answer_id, str(e))
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Intelligence LLM provider unavailable: {str(e)}",
+        )
+    except ValueError as e:
+        logger.warning("Validation error during analysis for answer_id=%s: %s", request.answer_id, str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid analysis request parameters: {str(e)}",
+        )
     except Exception as e:
+        logger.error("Unexpected failure during intelligence analysis for answer_id=%s: %s", request.answer_id, str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Intelligence analysis failed: {str(e)}",
+            detail="Internal intelligence analysis failed.",
         )
 
 

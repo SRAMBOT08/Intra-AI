@@ -1,11 +1,14 @@
 """FastAPI service for Meta-Orchestrator (Port 4004)."""
 
+import logging
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.schemas import HealthResponse, NextActionRequest
 from src.domain.models import NextAction
 from src.orchestrator.graph import decide_next_action
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="EchoSphere Meta-Orchestrator Service",
@@ -40,11 +43,33 @@ async def get_next_action(request: NextActionRequest) -> NextAction:
             is_final_round=request.is_final_round,
             current_competency=request.current_competency,
         )
+        logger.info(
+            "Orchestrator decision for interview_id=%s: action=%s, target_agent_id=%s, competency_id=%s",
+            request.interview_context.interview_id,
+            next_action.action.value,
+            next_action.target_agent_id,
+            next_action.competency_id,
+        )
         return next_action
+    except ValueError as e:
+        logger.warning(
+            "Validation failure in orchestrator for interview_id=%s: %s",
+            request.interview_context.interview_id,
+            str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid orchestration request: {str(e)}",
+        )
     except Exception as e:
+        logger.error(
+            "Unexpected error in orchestrator decision for interview_id=%s: %s",
+            request.interview_context.interview_id,
+            str(e),
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Meta-orchestrator decision failed: {str(e)}",
+            detail="Meta-orchestrator decision failed.",
         )
 
 
