@@ -97,9 +97,9 @@ export async function POST(request: NextRequest) {
         })
       )
       .withLlm(
-        customLlmUrl && process.env.OPENAI_API_KEY
+        customLlmUrl && (process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.ECHOSPHERE_LLM_API_KEY)
           ? new OpenAI({
-              apiKey: process.env.OPENAI_API_KEY,
+              apiKey: process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.ECHOSPHERE_LLM_API_KEY || 'echosphere-key',
               url: customLlmUrl,
               model: 'gpt-4o-mini',
               greetingMessage: greeting,
