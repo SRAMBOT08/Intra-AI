@@ -23,6 +23,7 @@ import {
 import { ActivePersonaBadge } from './ActivePersonaBadge';
 import { ObservabilityDrawer } from './ObservabilityDrawer';
 import { MicrophoneSelector } from './MicrophoneSelector';
+import { DualAudioWaveform } from './DualAudioWaveform';
 import { DEFAULT_AGENT_UID } from '@/lib/agora';
 import { AnswerAnalysis, NextAction } from '@/types/echosphere';
 
@@ -420,21 +421,31 @@ export function VoiceInterviewRoom({
     if (onInterviewComplete) onInterviewComplete();
   };
 
+  const latestTranscript = transcripts.length > 0 ? transcripts[transcripts.length - 1].text : '';
+  const progressPercent = Math.min(100, Math.max(15, Math.round((coverageCount / 3) * 100)));
+
   return (
-    <div className="flex h-full min-h-screen flex-col bg-light-surface text-deep-indigo font-sora">
-      {/* Top Banner */}
-      <div className="flex items-center justify-between border-b border-pale-indigo/40 bg-pure-white px-8 py-4 shadow-sm">
-        <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-base font-medium text-deep-indigo tracking-tight-card">{jobTitle}</h2>
-            <span className="rounded-full bg-teal-accent/20 px-3 py-0.5 text-xs font-medium text-deep-indigo border border-teal-accent/50 flex items-center gap-1.5">
-              <Radio className="h-3 w-3 text-deep-indigo animate-pulse" />
-              Agora Conversational AI (RTC Web SDK)
-            </span>
+    <div className="flex h-full min-h-screen flex-col bg-[#f4f6f5] text-slate-800 font-sora">
+      {/* Top Greenhouse Bar */}
+      <header className="flex items-center justify-between border-b border-slate-200/80 bg-white px-8 py-3.5 shadow-2xs">
+        <div className="flex items-center gap-4">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-brand text-white font-serif font-bold text-lg shadow-xs">
+            i
           </div>
-          <p className="text-xs text-muted-indigo mt-0.5">
-            Candidate: <span className="font-medium text-deep-indigo">{candidateName}</span> • Session ID: <span className="font-medium text-deep-indigo">{interviewId}</span> • Channel: <span className="font-mono font-medium">{channelName}</span>
-          </p>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl font-serif font-bold text-slate-900 tracking-tight">
+                Interview with Intra Voice AI
+              </h1>
+              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                <Radio className="h-3 w-3 text-emerald-600 animate-pulse" />
+                Agora RTC Active
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">
+              Talk to Intra like you would a real person &bull; Role: <strong className="text-slate-700 font-medium">{jobTitle}</strong>
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -445,138 +456,44 @@ export function VoiceInterviewRoom({
 
           <button
             onClick={toggleSpeakerMute}
-            className={`rounded-full border p-2.5 transition-all ${
+            className={`rounded-full border p-2 text-xs transition-all ${
               isSpeakerMuted
                 ? 'bg-rose-100 border-rose-300 text-rose-700'
-                : 'bg-light-surface border-pale-indigo/50 text-deep-indigo hover:border-deep-indigo'
+                : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-400'
             }`}
             title={isSpeakerMuted ? 'Unmute Speaker' : 'Mute Speaker'}
           >
             {isSpeakerMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Main Workspace Grid */}
-      <div className="grid flex-1 grid-cols-1 lg:grid-cols-12 gap-8 p-8 max-w-7xl mx-auto w-full">
-        {/* Left 7 Columns: Active Persona & Visualizer Frame */}
-        <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
-          {/* Active Interviewer Persona Card */}
-          <ActivePersonaBadge
-            personaId={activePersona}
-            currentCompetency={activePersona === 'product' ? 'customer_impact' : 'scalability'}
-            isSpeaking={callStatus === 'SPEAKING' || callStatus === 'HANDOFF'}
-            isListening={callStatus === 'LISTENING'}
-          />
-
-          {/* Central Audio Visualizer Frame */}
-          <div className="relative flex flex-1 items-center justify-center rounded-[35px] border border-pale-indigo/40 bg-pure-white p-10 shadow-card-default">
-            <div className="relative flex items-center justify-center">
-              {/* Outer pulsing rings using Teal Accent and Yellow Accent */}
-              <div
-                className="absolute rounded-full transition-all duration-300 bg-teal-accent/15 border border-teal-accent/30"
-                style={{
-                  width: `${audioLevel * 4.4}px`,
-                  height: `${audioLevel * 4.4}px`,
-                }}
-              />
-              <div
-                className="absolute rounded-full transition-all duration-200 bg-yellow-accent/15 border border-yellow-accent/40"
-                style={{
-                  width: `${audioLevel * 3.4}px`,
-                  height: `${audioLevel * 3.4}px`,
-                }}
-              />
-
-              {/* Core Deep Indigo Orb */}
-              <div
-                className="relative z-10 flex items-center justify-center rounded-full bg-deep-indigo text-pure-white shadow-card-elevated transition-all duration-200"
-                style={{
-                  width: `${Math.max(130, audioLevel * 2.4)}px`,
-                  height: `${Math.max(130, audioLevel * 2.4)}px`,
-                }}
-              >
-                <div className="flex flex-col items-center justify-center">
-                  {callStatus === 'THINKING' || callStatus === 'CONNECTING' ? (
-                    <Sparkles className="h-8 w-8 text-yellow-accent animate-spin" />
-                  ) : callStatus === 'SPEAKING' ? (
-                    <Volume2 className="h-8 w-8 text-teal-accent animate-bounce" />
-                  ) : (
-                    <Mic className={`h-8 w-8 ${!isMuted ? 'text-teal-accent' : 'text-pure-white'}`} />
-                  )}
-                  <span className="mt-1.5 text-[11px] font-medium tracking-wider uppercase">
-                    {callStatus}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Subtitle status banner */}
-            <div className="absolute bottom-6 text-center flex flex-col items-center gap-1.5">
-              <p className="text-xs font-medium text-muted-indigo">
-                {callStatus === 'CONNECTING' && 'Connecting to Agora RTC channel & inviting agent...'}
-                {callStatus === 'LISTENING' && '🎙️ Microphone streaming to Agora RTC • Speak naturally (Agora VAD active)'}
-                {callStatus === 'THINKING' && 'Agora Cloud processing & evaluating intelligence...'}
-                {callStatus === 'SPEAKING' && `🔊 ${activePersona === 'product' ? 'Jordan' : 'Alex'} speaking via Agora TTS (Barge-in enabled)`}
-                {callStatus === 'HANDOFF' && '🔄 Dynamic Persona Handoff in progress...'}
-                {callStatus === 'COMPLETED' && 'Interview concluded. Preparing assessment report.'}
-              </p>
-              {errorMessage && (
-                <span className="text-xs text-rose-600 bg-rose-50 px-3 py-1 rounded-full border border-rose-200">
-                  {errorMessage}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Audio Controls Bar */}
-          <div className="flex items-center justify-between rounded-[24px] border border-pale-indigo/40 bg-pure-white p-4 shadow-card-default">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={toggleMute}
-                className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-medium transition-all ${
-                  isMuted
-                    ? 'bg-rose-100 text-rose-700 border border-rose-300'
-                    : 'bg-light-surface text-deep-indigo border border-pale-indigo/50 hover:border-deep-indigo'
-                }`}
-              >
-                {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                {isMuted ? 'Unmute Mic' : 'Mute Mic'}
-              </button>
-
-              <span className="text-xs text-muted-indigo font-normal">
-                Agora RTC Audio Stream Active • Channel: <span className="font-mono text-deep-indigo">{channelName}</span>
+      {/* Main Greenhouse Dual Workspace (Screenshots 1.01.04 & 1.01.06) */}
+      <div className="grid flex-1 grid-cols-1 lg:grid-cols-12 gap-8 p-6 md:p-8 max-w-7xl mx-auto w-full items-stretch">
+        {/* Left Column (5 cols): Interview in progress, Transcript Feed, End interview button */}
+        <div className="lg:col-span-5 flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
+          {/* Top: Progress Header */}
+          <div className="space-y-2 border-b border-slate-100 pb-4">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-slate-800 text-sm font-serif">Interview in progress</span>
+              <span className="text-emerald-700 font-semibold text-[11px] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                {progressPercent}% Complete
               </span>
             </div>
-
-            {/* End Interview */}
-            <button
-              onClick={handleEndInterview}
-              className="flex items-center gap-2 rounded-full bg-deep-indigo px-5 py-2.5 text-xs font-medium text-pure-white shadow-cta-yellow transition-all hover:bg-deep-indigo/90"
-            >
-              <PhoneOff className="h-4 w-4" />
-              End Interview
-            </button>
-          </div>
-        </div>
-
-        {/* Right 5 Columns: Live Conversation Transcript & Testing Controls */}
-        <div className="lg:col-span-5 flex flex-col rounded-[35px] border border-pale-indigo/40 bg-pure-white p-6 shadow-card-default">
-          <div className="flex items-center justify-between border-b border-pale-indigo/30 pb-4">
-            <div className="flex items-center gap-2.5">
-              <MessageSquare className="h-4 w-4 text-deep-indigo" />
-              <h3 className="text-sm font-medium text-deep-indigo tracking-tight">Conversation Transcript</h3>
+            {/* Green Progress Bar (Greenhouse 1.01.06 AM.png) */}
+            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+              <div
+                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${progressPercent}%` }}
+              />
             </div>
-            <span className="text-xs font-medium text-muted-indigo bg-light-surface px-2.5 py-0.5 rounded-full border border-pale-indigo/30">
-              {transcripts.length} turns
-            </span>
           </div>
 
           {/* Transcript Message Feed */}
-          <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-1 max-h-[50vh]">
+          <div className="flex-1 overflow-y-auto space-y-3.5 pr-1 max-h-[44vh]">
             {transcripts.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-center p-8 text-xs text-muted-indigo">
-                Speak into your microphone. Agora Conversational AI will stream real-time transcripts here.
+              <div className="flex h-full min-h-[160px] items-center justify-center text-center p-6 text-xs text-slate-400 leading-relaxed">
+                Connect your microphone and begin speaking. Alex and Jordan will converse with you and live transcripts will appear here.
               </div>
             ) : (
               transcripts.map((t) => (
@@ -586,20 +503,18 @@ export function VoiceInterviewRoom({
                     t.speaker === 'candidate' ? 'items-end' : 'items-start'
                   }`}
                 >
-                  <div className="flex items-center gap-2 text-[11px] text-muted-indigo mb-1 px-1">
-                    <span className="font-medium text-deep-indigo">
-                      {t.speaker === 'candidate' ? candidateName : t.personaName || 'Interviewer'}
+                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-1 px-1">
+                    <span className="font-semibold text-slate-700">
+                      {t.speaker === 'candidate' ? candidateName : t.personaName || 'Voice AI'}
                     </span>
-                    <span>{t.timestamp}</span>
+                    <span>&bull; {t.timestamp}</span>
                   </div>
 
                   <div
-                    className={`rounded-[20px] px-4 py-3 text-xs leading-relaxed max-w-[90%] shadow-sm ${
+                    className={`rounded-2xl px-4 py-2.5 text-xs leading-relaxed max-w-[90%] shadow-2xs ${
                       t.speaker === 'candidate'
-                        ? 'bg-deep-indigo text-pure-white rounded-tr-none'
-                        : t.personaName === 'Jordan'
-                        ? 'bg-yellow-accent/15 text-deep-indigo border border-yellow-accent/40 rounded-tl-none'
-                        : 'bg-light-surface text-deep-indigo border border-pale-indigo/40 rounded-tl-none'
+                        ? 'bg-forest-900 text-white rounded-tr-none'
+                        : 'bg-slate-100 text-slate-800 rounded-tl-none border border-slate-200/60'
                     }`}
                   >
                     {t.text}
@@ -610,59 +525,88 @@ export function VoiceInterviewRoom({
             <div ref={transcriptsEndRef} />
           </div>
 
-          {/* 1-Click Preset Scenario Buttons for Fast Testing */}
-          <div className="pt-3 pb-2 border-t border-pale-indigo/20">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-medium text-muted-indigo uppercase tracking-wider">
-                1-Click Test Answers:
-              </span>
-              <span className="text-[10px] text-muted-indigo">Click to test scenario</span>
+          {/* 1-Click Fast Presets (Optional Helper for Fast Scenario Testing) */}
+          <div className="pt-2 border-t border-slate-100">
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+              Quick Test Presets (Click to speak):
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="grid grid-cols-1 gap-1">
               {CANONICAL_PRESETS.map((preset) => (
                 <button
                   key={preset.turn}
                   type="button"
                   disabled={callStatus === 'THINKING' || callStatus === 'COMPLETED'}
                   onClick={() => submitCandidateAnswer(preset.text)}
-                  className="flex items-center justify-between rounded-xl border border-pale-indigo/40 bg-light-surface px-3 py-1.5 text-left text-[11px] font-normal text-deep-indigo hover:border-deep-indigo hover:bg-pure-white transition-all disabled:opacity-40"
+                  className="rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-1 text-left text-[11px] text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 transition-colors truncate disabled:opacity-40"
                 >
-                  <span className="truncate mr-2">{preset.label}</span>
-                  <CheckCircle2 className="h-3 w-3 text-muted-indigo flex-shrink-0" />
+                  {preset.label}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Candidate Voice/Text Input Bar */}
+          {/* Voice/Text Input Bar */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               submitCandidateAnswer(candidateInput);
             }}
-            className="mt-2 flex gap-2 border-t border-pale-indigo/30 pt-3"
+            className="flex gap-2 pt-2 border-t border-slate-100"
           >
             <input
               type="text"
               value={candidateInput}
               onChange={(e) => setCandidateInput(e.target.value)}
-              placeholder="Speak aloud or type candidate answer..."
+              placeholder="Speak aloud or type answer here..."
               disabled={callStatus === 'THINKING' || callStatus === 'COMPLETED'}
-              className="flex-1 rounded-full border border-pale-indigo/60 bg-light-surface px-4 py-2.5 text-xs text-deep-indigo placeholder-muted-indigo focus:border-deep-indigo focus:bg-pure-white focus:outline-none transition-colors"
+              className="flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-800 outline-hidden focus:border-emerald-500 focus:bg-white transition-colors"
             />
             <button
               type="submit"
               disabled={!candidateInput.trim() || callStatus === 'THINKING'}
-              className="flex items-center gap-1.5 rounded-full bg-deep-indigo hover:bg-deep-indigo/90 disabled:opacity-50 px-5 py-2.5 text-xs font-medium text-pure-white shadow-cta-yellow transition-all"
+              className="rounded-full bg-forest-900 hover:bg-forest-800 disabled:opacity-40 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-all flex items-center gap-1"
             >
               <span>Send</span>
               <Send className="h-3 w-3" />
             </button>
           </form>
+
+          {/* Bottom Card Footer: End Interview Pill & Candidate User Avatar */}
+          <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+            <button
+              onClick={handleEndInterview}
+              className="rounded-full border border-slate-300 hover:border-rose-500 hover:text-rose-600 px-5 py-2 text-xs font-semibold text-slate-700 transition-colors"
+            >
+              End interview
+            </button>
+
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center border border-emerald-200">
+                {candidateName.split(' ').map(n => n[0]).join('')}
+              </div>
+              <div className="text-right">
+                <div className="text-xs font-semibold text-slate-800">{candidateName}</div>
+                <div className="text-[10px] text-slate-400">candidate@intra.ai</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column (7 cols): Dual Audio Waveform Display (Screenshots 1.01.04 & 1.01.06) */}
+        <div className="lg:col-span-7 flex flex-col min-h-[520px]">
+          <DualAudioWaveform
+            interviewerName={activePersona === 'product' ? 'Jordan (Product Lead)' : 'Alex (Technical Interviewer)'}
+            candidateName={candidateName}
+            isAiSpeaking={callStatus === 'SPEAKING' || callStatus === 'HANDOFF'}
+            isCandidateSpeaking={callStatus === 'LISTENING' && audioLevel > 15}
+            aiVolume={callStatus === 'SPEAKING' ? 75 : 20}
+            candidateVolume={audioLevel}
+            liveCaption={latestTranscript}
+          />
         </div>
       </div>
 
-      {/* Floating Observability Inspector */}
+      {/* Observability Inspector */}
       <ObservabilityDrawer
         currentAgentId={activePersona}
         currentCompetency={activePersona === 'product' ? 'customer_impact' : 'scalability'}

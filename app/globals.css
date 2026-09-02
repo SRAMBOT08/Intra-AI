@@ -3,43 +3,53 @@
 @tailwind utilities;
 
 :root {
-  --background: #f4f5f6;
-  --foreground: #272666;
-  --pure-white: #ffffff;
-  --light-surface: #f4f5f6;
-  --teal-accent: #7ed7cc;
-  --yellow-accent: #ffdc39;
-  --deep-indigo: #272666;
-  --muted-indigo: #747198;
-  --pale-indigo: #aeacc3;
-  --rich-black: #000000;
+  --background: #f8f9fa;
+  --foreground: #102a22;
+  --forest-green: #102a22;
+  --forest-dark: #0a1c17;
+  --emerald-green: #00875a;
+  --greenhouse-blue: #2b66d9;
 }
 
 body {
-  color: #272666;
-  background-color: #f4f5f6;
+  color: #102a22;
+  background-color: #f8f9fa;
   font-family: 'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
-  letter-spacing: -0.48px;
+  letter-spacing: -0.2px;
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  color: #272666;
-  font-family: 'Sora', sans-serif;
+.font-editorial {
+  font-family: 'Newsreader', Georgia, Cambria, 'Times New Roman', serif;
 }
 
-/* Custom scrollbar matching light editorial aesthetic */
+/* Waveform animations */
+@keyframes pulseWave {
+  0%, 100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.animate-pulse-wave {
+  animation: pulseWave 1.2s ease-in-out infinite;
+}
+
+/* Custom scrollbar matching Greenhouse clean aesthetic */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f4f5f6;
+  background: #f8f9fa;
 }
 ::-webkit-scrollbar-thumb {
-  background: #aeacc3;
+  background: #cbd5e1;
   border-radius: 99999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #747198;
+  background: #94a3b8;
 }
+
