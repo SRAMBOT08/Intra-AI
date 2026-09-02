@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Mic,
   MicOff,
@@ -10,6 +10,7 @@ import {
   Sparkles,
   MessageSquare,
   Send,
+  Radio,
 } from 'lucide-react';
 import { ActivePersonaBadge } from './ActivePersonaBadge';
 import { ObservabilityDrawer } from './ObservabilityDrawer';
@@ -53,16 +54,20 @@ export function VoiceInterviewRoom({
   const [coverageCount, setCoverageCount] = useState(1);
   const [selectedMicrophone, setSelectedMicrophone] = useState<string>('');
   const [audioLevel, setAudioLevel] = useState(25);
+  const [isVoiceListening, setIsVoiceListening] = useState(false);
 
   const transcriptsEndRef = useRef<HTMLDivElement>(null);
   const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const submitRef = useRef<((text: string) => Promise<void>) | null>(null);
 
   // Auto scroll transcript
   useEffect(() => {
     transcriptsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcripts]);
 
-  // Audio animation
+  // Audio visualizer animation
   useEffect(() => {
     if (callStatus === 'SPEAKING' || callStatus === 'LISTENING') {
       audioIntervalRef.current = setInterval(() => {
@@ -77,49 +82,66 @@ export function VoiceInterviewRoom({
     };
   }, [callStatus]);
 
-  // Initial connection
-  useEffect(() => {
-    let mounted = true;
-    const timer = setTimeout(async () => {
-      if (!mounted) return;
-      setCallStatus('THINKING');
-
-      try {
-        const res = await fetch(`/api/custom-llm?interview_id=${interviewId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: [] }),
-        });
-        const data = await res.json();
-        const initialGreeting =
-          data?.choices?.[0]?.message?.content ||
-          `Hello! I'm Alex, your technical interviewer today. To begin, could you walk me through how you design your database and caching tier for high-throughput reads?`;
-
-        setTranscripts([
-          {
-            id: 'turn-0',
-            speaker: 'interviewer',
-            personaName: 'Alex',
-            text: initialGreeting,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          },
-        ]);
-        setCallStatus('LISTENING');
-      } catch (err) {
-        console.error('Error starting conversation:', err);
-        setCallStatus('LISTENING');
+  // Browser Text-to-Speech (TTS) Voice Synthesis
+  const speakText = useCallback(
+    (text: string, persona: string, onEnd?: () => void) => {
+      if (typeof window === 'undefined' || !('speechSynthesis' in window) || isSpeakerMuted) {
+        if (onEnd) onEnd();
+        return;
       }
-    }, 1200);
 
-    return () => {
-      mounted = false;
-      clearTimeout(timer);
-    };
-  }, [interviewId]);
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.05;
+      utterance.pitch = persona === 'product' ? 1.15 : 0.95;
+
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        if (persona === 'product') {
+          const femaleVoice = voices.find(
+            (v) =>
+              (v.name.includes('Samantha') ||
+                v.name.includes('Victoria') ||
+                v.name.includes('Karen') ||
+                v.name.includes('Zira') ||
+                v.name.includes('Female')) &&
+              v.lang.startsWith('en')
+          );
+          if (femaleVoice) utterance.voice = femaleVoice;
+        } else {
+          const maleVoice = voices.find(
+            (v) =>
+              (v.name.includes('Daniel') ||
+                v.name.includes('Alex') ||
+                v.name.includes('David') ||
+                v.name.includes('Male')) &&
+              v.lang.startsWith('en')
+          );
+          if (maleVoice) utterance.voice = maleVoice;
+        }
+      }
+
+      utterance.onend = () => {
+        if (onEnd) onEnd();
+      };
+      utterance.onerror = () => {
+        if (onEnd) onEnd();
+      };
+
+      window.speechSynthesis.speak(utterance);
+    },
+    [isSpeakerMuted]
+  );
 
   // Submit Candidate Answer
   const submitCandidateAnswer = async (answerText: string) => {
     if (!answerText.trim() || callStatus === 'THINKING' || callStatus === 'COMPLETED') return;
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (_) {}
+    }
 
     const candidateTurn: TranscriptTurn = {
       id: `cand-${Date.now()}`,
@@ -145,9 +167,11 @@ export function VoiceInterviewRoom({
       const reply = data?.choices?.[0]?.message?.content || 'Thank you. Could you elaborate on that?';
       const meta = data?.echosphere_meta;
 
+      let nextPersona = activePersona;
       if (meta?.latest_action) {
         setLatestAction(meta.latest_action);
         if (meta.latest_action.action === 'SWITCH_AGENT') {
+          nextPersona = 'product';
           setCallStatus('HANDOFF');
           setTimeout(() => {
             setActivePersona('product');
@@ -158,7 +182,11 @@ export function VoiceInterviewRoom({
         }
       }
 
-      const personaName = activePersona === 'product' || meta?.latest_action?.target_agent_id === 'product' ? 'Jordan' : 'Alex';
+      const personaName =
+        nextPersona === 'product' || meta?.latest_action?.target_agent_id === 'product'
+          ? 'Jordan'
+          : 'Alex';
+
       const interviewerTurn: TranscriptTurn = {
         id: `interv-${Date.now()}`,
         speaker: 'interviewer',
@@ -171,10 +199,14 @@ export function VoiceInterviewRoom({
 
       if (meta?.is_complete || meta?.latest_action?.action === 'COMPLETE') {
         setCallStatus('COMPLETED');
-        if (onInterviewComplete) onInterviewComplete();
+        speakText(reply, personaName, () => {
+          if (onInterviewComplete) onInterviewComplete();
+        });
       } else {
         setCallStatus('SPEAKING');
-        setTimeout(() => setCallStatus('LISTENING'), 3500);
+        speakText(reply, personaName, () => {
+          setCallStatus('LISTENING');
+        });
       }
     } catch (err) {
       console.error('Turn processing failed:', err);
@@ -182,14 +214,138 @@ export function VoiceInterviewRoom({
     }
   };
 
+  submitRef.current = submitCandidateAnswer;
+
+  // Browser Continuous Speech-to-Text (STT) Setup
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: any) => {
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + ' ';
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      const liveText = (finalTranscript + interimTranscript).trim();
+      if (liveText) {
+        setCandidateInput(liveText);
+
+        // Auto-submit after candidate pauses speaking for 2.2 seconds
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = setTimeout(() => {
+          if (liveText.length > 8 && submitRef.current) {
+            submitRef.current(liveText);
+          }
+        }, 2200);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      if (event.error !== 'no-speech') {
+        console.warn('Speech recognition error:', event.error);
+      }
+    };
+
+    recognition.onend = () => {
+      setIsVoiceListening(false);
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      try {
+        recognition.stop();
+      } catch (_) {}
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    };
+  }, []);
+
+  // Manage voice listening based on call status and mute
+  useEffect(() => {
+    if (!recognitionRef.current) return;
+
+    if (callStatus === 'LISTENING' && !isMuted) {
+      try {
+        recognitionRef.current.start();
+        setIsVoiceListening(true);
+      } catch (_) {}
+    } else {
+      try {
+        recognitionRef.current.stop();
+        setIsVoiceListening(false);
+      } catch (_) {}
+    }
+  }, [callStatus, isMuted]);
+
+  // Initial greeting connection
+  useEffect(() => {
+    let mounted = true;
+    const timer = setTimeout(async () => {
+      if (!mounted) return;
+      setCallStatus('THINKING');
+
+      try {
+        const res = await fetch(`/api/custom-llm?interview_id=${interviewId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: [] }),
+        });
+        const data = await res.json();
+        const initialGreeting =
+          data?.choices?.[0]?.message?.content ||
+          `Hello! I'm Alex, your technical interviewer today. We will evaluate system design, scalability, and customer impact. To start, could you walk me through how you design your database and caching tier for high-throughput reads?`;
+
+        setTranscripts([
+          {
+            id: 'turn-0',
+            speaker: 'interviewer',
+            personaName: 'Alex',
+            text: initialGreeting,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
+
+        setCallStatus('SPEAKING');
+        speakText(initialGreeting, 'technical', () => {
+          setCallStatus('LISTENING');
+        });
+      } catch (err) {
+        console.error('Error starting conversation:', err);
+        setCallStatus('LISTENING');
+      }
+    }, 1000);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
+  }, [interviewId, speakText]);
+
   return (
     <div className="flex h-full min-h-screen flex-col bg-light-surface text-deep-indigo font-sora">
-      {/* Top Banner: Elevated white surface with pill navigation */}
+      {/* Top Banner */}
       <div className="flex items-center justify-between border-b border-pale-indigo/40 bg-pure-white px-8 py-4 shadow-sm">
         <div>
           <div className="flex items-center gap-3">
             <h2 className="text-base font-medium text-deep-indigo tracking-tight-card">{jobTitle}</h2>
-            <span className="rounded-full bg-yellow-accent/20 px-3 py-0.5 text-xs font-medium text-deep-indigo border border-yellow-accent/50">
+            <span className="rounded-full bg-yellow-accent/20 px-3 py-0.5 text-xs font-medium text-deep-indigo border border-yellow-accent/50 flex items-center gap-1.5">
+              <Radio className="h-3 w-3 text-deep-indigo animate-pulse" />
               Live Voice Interview
             </span>
           </div>
@@ -205,13 +361,16 @@ export function VoiceInterviewRoom({
           />
 
           <button
-            onClick={() => setIsSpeakerMuted(!isSpeakerMuted)}
+            onClick={() => {
+              if (!isSpeakerMuted) window.speechSynthesis.cancel();
+              setIsSpeakerMuted(!isSpeakerMuted);
+            }}
             className={`rounded-full border p-2.5 transition-all ${
               isSpeakerMuted
                 ? 'bg-rose-100 border-rose-300 text-rose-700'
                 : 'bg-light-surface border-pale-indigo/50 text-deep-indigo hover:border-deep-indigo'
             }`}
-            title={isSpeakerMuted ? 'Unmute Speaker' : 'Mute Speaker'}
+            title={isSpeakerMuted ? 'Unmute Voice Audio' : 'Mute Voice Audio'}
           >
             {isSpeakerMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
           </button>
@@ -250,7 +409,12 @@ export function VoiceInterviewRoom({
 
               {/* Core Deep Indigo Orb */}
               <div
-                className="relative z-10 flex items-center justify-center rounded-full bg-deep-indigo text-pure-white shadow-card-elevated transition-all duration-200"
+                className="relative z-10 flex items-center justify-center rounded-full bg-deep-indigo text-pure-white shadow-card-elevated transition-all duration-200 cursor-pointer"
+                onClick={() => {
+                  if (callStatus === 'LISTENING' && candidateInput.trim()) {
+                    submitCandidateAnswer(candidateInput);
+                  }
+                }}
                 style={{
                   width: `${Math.max(130, audioLevel * 2.4)}px`,
                   height: `${Math.max(130, audioLevel * 2.4)}px`,
@@ -262,7 +426,7 @@ export function VoiceInterviewRoom({
                   ) : callStatus === 'SPEAKING' ? (
                     <Volume2 className="h-8 w-8 text-teal-accent animate-bounce" />
                   ) : (
-                    <Mic className="h-8 w-8 text-pure-white" />
+                    <Mic className={`h-8 w-8 ${isVoiceListening ? 'text-teal-accent' : 'text-pure-white'}`} />
                   )}
                   <span className="mt-1.5 text-[11px] font-medium tracking-wider uppercase">
                     {callStatus}
@@ -274,10 +438,10 @@ export function VoiceInterviewRoom({
             {/* Subtitle status banner */}
             <div className="absolute bottom-6 text-center">
               <p className="text-xs font-medium text-muted-indigo">
-                {callStatus === 'LISTENING' && 'Agora voice channel active • Speak naturally'}
+                {callStatus === 'LISTENING' && (isVoiceListening ? '🎙️ Microphone listening • Speak naturally now' : 'Microphone ready')}
                 {callStatus === 'THINKING' && 'EchoSphere evaluating answer & deciding next action...'}
-                {callStatus === 'SPEAKING' && `${activePersona === 'product' ? 'Jordan' : 'Alex'} is speaking`}
-                {callStatus === 'HANDOFF' && 'Dynamic Persona Handoff in progress...'}
+                {callStatus === 'SPEAKING' && `🔊 ${activePersona === 'product' ? 'Jordan' : 'Alex'} is speaking...`}
+                {callStatus === 'HANDOFF' && '🔄 Dynamic Persona Handoff in progress...'}
                 {callStatus === 'COMPLETED' && 'Interview concluded. Preparing assessment report.'}
               </p>
             </div>
@@ -299,13 +463,14 @@ export function VoiceInterviewRoom({
               </button>
 
               <span className="text-xs text-muted-indigo font-normal">
-                Continuous Agora RTC audio session
+                Continuous Voice Conversation Active
               </span>
             </div>
 
-            {/* End Interview with Fikri Yellow Accent Ring */}
+            {/* End Interview */}
             <button
               onClick={() => {
+                window.speechSynthesis.cancel();
                 setCallStatus('COMPLETED');
                 if (onInterviewComplete) onInterviewComplete();
               }}
@@ -361,7 +526,7 @@ export function VoiceInterviewRoom({
             <div ref={transcriptsEndRef} />
           </div>
 
-          {/* Candidate Voice/Text Input Bar */}
+          {/* Candidate Voice / Text Input Bar */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -373,7 +538,7 @@ export function VoiceInterviewRoom({
               type="text"
               value={candidateInput}
               onChange={(e) => setCandidateInput(e.target.value)}
-              placeholder="Speak or type candidate answer..."
+              placeholder={isVoiceListening ? '🎙️ Listening... (or type your answer here)' : 'Speak into mic or type answer...'}
               disabled={callStatus === 'THINKING' || callStatus === 'COMPLETED'}
               className="flex-1 rounded-full border border-pale-indigo/60 bg-light-surface px-4 py-2.5 text-xs text-deep-indigo placeholder-muted-indigo focus:border-deep-indigo focus:bg-pure-white focus:outline-none transition-colors"
             />
