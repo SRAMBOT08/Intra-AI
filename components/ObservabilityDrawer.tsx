@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Activity, ChevronDown, ChevronUp, Cpu, Gauge, GitCommit, ShieldAlert, Sparkles, Terminal } from 'lucide-react';
 import { AnswerAnalysis, NextAction } from '@/types/echosphere';
+import { KnowledgeGraphVisualizer } from '@/components/KnowledgeGraphVisualizer';
 
 interface ObservabilityDrawerProps {
   currentAgentId: string;
@@ -182,6 +183,9 @@ export function ObservabilityDrawer({
               <div className="text-xs text-muted-indigo italic">Initializing decision loop...</div>
             )}
           </div>
+
+          {/* Persistent Candidate Knowledge Graph (Neo4j V1) */}
+          <KnowledgeGraphVisualizer />
         </div>
       )}
     </div>

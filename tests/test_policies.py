@@ -331,14 +331,14 @@ def test_action_validator_valid():
 
 
 def test_action_validator_invalid_switch_missing_text():
-    action = NextAction(
-        action=ActionType.SWITCH_AGENT,
-        target_agent_id="product",
-        competency_id="customer_impact",
-        reason="Switch to Jordan.",
-        handoff_transition_text="",
-    )
     with pytest.raises(ValueError, match="handoff_transition_text"):
+        action = NextAction(
+            action=ActionType.SWITCH_AGENT,
+            target_agent_id="product",
+            competency_id="customer_impact",
+            reason="Switch to Jordan.",
+            handoff_transition_text="",
+        )
         ActionValidator.validate(action)
 
 

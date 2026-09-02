@@ -55,7 +55,9 @@ export async function POST(request: NextRequest) {
     });
 
     const customLlmUrl = process.env.NEXT_PUBLIC_APP_URL
-      ? `${process.env.NEXT_PUBLIC_APP_URL}/api/custom-llm`
+      ? `${process.env.NEXT_PUBLIC_APP_URL}/api/custom-llm?interview_id=${encodeURIComponent(
+          interview_id || channel_name
+        )}`
       : undefined;
 
     const agent = new Agent({
@@ -97,9 +99,9 @@ export async function POST(request: NextRequest) {
         })
       )
       .withLlm(
-        customLlmUrl && process.env.OPENAI_API_KEY
+        customLlmUrl && (process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.ECHOSPHERE_LLM_API_KEY)
           ? new OpenAI({
-              apiKey: process.env.OPENAI_API_KEY,
+              apiKey: process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.ECHOSPHERE_LLM_API_KEY || 'echosphere-key',
               url: customLlmUrl,
               model: 'gpt-4o-mini',
               greetingMessage: greeting,

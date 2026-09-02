@@ -1,0 +1,55 @@
+"""EchoSphere V1 Knowledge Graph Module."""
+
+from src.knowledge_graph.services.knowledge_graph_service import KnowledgeGraphService
+from src.knowledge_graph.repository.factory import (
+    get_knowledge_graph_repository,
+    set_knowledge_graph_repository,
+)
+from src.knowledge_graph.types import (
+    CandidateNode,
+    InterviewRoundNode,
+    ExperienceNode,
+    ProjectNode,
+    SkillNode,
+    TechnologyNode,
+    ConceptNode,
+    CompetencyNode,
+    QuestionNode,
+    AnswerNode,
+    EvidenceNode,
+    AssessmentNode,
+    RelationshipType,
+    GraphRelationship,
+    EntityItem,
+    RelationshipItem,
+    GraphUpdate,
+    RelevantPersistentContext,
+    CrossRoundContext,
+    GraphVisualizationData,
+)
+
+__all__ = [
+    "KnowledgeGraphService",
+    "get_knowledge_graph_repository",
+    "set_knowledge_graph_repository",
+    "CandidateNode",
+    "InterviewRoundNode",
+    "ExperienceNode",
+    "ProjectNode",
+    "SkillNode",
+    "TechnologyNode",
+    "ConceptNode",
+    "CompetencyNode",
+    "QuestionNode",
+    "AnswerNode",
+    "EvidenceNode",
+    "AssessmentNode",
+    "RelationshipType",
+    "GraphRelationship",
+    "EntityItem",
+    "RelationshipItem",
+    "GraphUpdate",
+    "RelevantPersistentContext",
+    "CrossRoundContext",
+    "GraphVisualizationData",
+]

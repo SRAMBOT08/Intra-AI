@@ -128,6 +128,11 @@ def resolve_competency_owner_node(state: InterviewGraphState) -> Dict[str, Any]:
         current_agent_id=current_agent_id,
     )
 
+    # Enrich directive with persistent context if available
+    pers_ctx = state.get("relevant_persistent_context")
+    if pers_ctx and isinstance(pers_ctx, dict) and pers_ctx.get("summary_text"):
+        directive = f"{directive} [Prior Candidate Facts: {pers_ctx.get('summary_text')}]"
+
     return {
         "candidate_action": action,
         "target_agent_id": target_id,

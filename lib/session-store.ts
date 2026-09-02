@@ -23,6 +23,8 @@ const sessions = global.__echosphere_sessions__;
 export function createSession(params: {
   interview_id?: string;
   candidate_id?: string;
+  candidate_name?: string;
+  cv_text?: string;
   job_id?: string;
   job_title?: string;
   job_description?: string;
@@ -55,6 +57,8 @@ export function createSession(params: {
   const session: InterviewSession = {
     interview_id,
     candidate_id,
+    candidate_name: params.candidate_name || 'Dr. Elena Rostova',
+    cv_text: params.cv_text || '',
     job_id: params.job_id || 'JOB-01',
     job_title: params.job_title || 'Senior Distributed Systems Engineer',
     job_description:
@@ -77,9 +81,20 @@ export function createSession(params: {
   return session;
 }
 
-export function getSession(idOrChannel: string): InterviewSession | null {
-  if (!idOrChannel) return null;
-  return sessions.get(idOrChannel) || null;
+export function getSession(idOrChannel?: string): InterviewSession | null {
+  if (idOrChannel) {
+    return sessions.get(idOrChannel) || null;
+  }
+  // Only if id is not specified, find the most recently active session
+  const allSessions = Array.from(sessions.values());
+  if (allSessions.length > 0) {
+    const active = allSessions
+      .filter((s) => s.status !== 'COMPLETED')
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+    if (active.length > 0) return active[0];
+    return allSessions.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0];
+  }
+  return null;
 }
 
 export function updateSessionStatus(idOrChannel: string, status: InterviewStatus): InterviewSession | null {
@@ -227,11 +242,12 @@ export function generateAssessmentReport(idOrChannel: string): AssessmentReport 
   return {
     interview_id: session.interview_id,
     candidate_id: session.candidate_id,
-    candidate_name: 'Alex Johnson',
+    candidate_name: session.candidate_name || 'Dr. Elena Rostova',
     job_title: session.job_title,
     overall_recommendation: overallRec,
     overall_score: Math.round(scorePct),
     evaluated_competencies: evaluatedMap,
+    competency_breakdown: evaluatedMap,
     strengths: strengths.length > 0 ? strengths : ['Clear architectural communication and technical clarity.'],
     weaknesses: weaknesses.length > 0 ? weaknesses : ['Could provide more edge-case trade-off analysis.'],
     unresolved_concerns: ctx.detected_contradictions,

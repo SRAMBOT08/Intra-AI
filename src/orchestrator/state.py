@@ -17,6 +17,7 @@ class InterviewGraphState(TypedDict, total=False):
     is_final_round: bool
     current_agent_id: str
     current_competency: Optional[str]
+    relevant_persistent_context: Optional[Dict[str, Any]]
 
     # Intermediate evaluation flags and routing
     is_complete: bool

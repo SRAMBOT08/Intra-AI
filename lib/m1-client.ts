@@ -5,8 +5,8 @@ import {
   NextAction,
 } from '@/types/echosphere';
 
-const INTEL_URL = process.env.M1_INTELLIGENCE_URL || 'http://localhost:4005';
-const ORCH_URL = process.env.M1_ORCHESTRATOR_URL || 'http://localhost:4004';
+const getIntelUrl = () => process.env.M1_INTELLIGENCE_URL || 'http://localhost:4005';
+const getOrchUrl = () => process.env.M1_ORCHESTRATOR_URL || 'http://localhost:4004';
 
 export interface AnalyzePayload {
   question: string;
@@ -29,18 +29,17 @@ export interface NextActionPayload {
  * Call Member 1 Interview Intelligence service on :4005.
  * Analyzes candidate utterance against target competencies.
  */
-export async function callM1Analyze(payload: AnalyzePayload): Promise<AnswerAnalysis> {
+export async function analyzeAnswer(payload: AnalyzePayload): Promise<AnswerAnalysis> {
   const answerId = payload.answer_id || `ANS-${Date.now()}`;
   try {
-    const res = await fetch(`${INTEL_URL}/v1/interview-intelligence/analyze`, {
+    const res = await fetch(`${getIntelUrl()}/v1/interview-intelligence/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...payload,
         answer_id: answerId,
       }),
-      // Short timeout to maintain snappy voice responsiveness
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!res.ok) {
@@ -61,13 +60,13 @@ export async function callM1Analyze(payload: AnalyzePayload): Promise<AnswerAnal
  * Call Member 1 Meta-Orchestrator service on :4004.
  * Evaluates context and analysis to produce NextAction.
  */
-export async function callM1NextAction(payload: NextActionPayload): Promise<NextAction> {
+export async function getNextAction(payload: NextActionPayload): Promise<NextAction> {
   try {
-    const res = await fetch(`${ORCH_URL}/v1/meta-orchestrator/next-action`, {
+    const res = await fetch(`${getOrchUrl()}/v1/meta-orchestrator/next-action`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!res.ok) {
@@ -82,6 +81,114 @@ export async function callM1NextAction(payload: NextActionPayload): Promise<Next
     console.error('[M1Client] Failed to call Meta-Orchestrator API, using safe fallback:', err);
     return createFallbackNextAction(payload);
   }
+}
+
+// Aliases for backward compatibility
+export const callM1Analyze = analyzeAnswer;
+export const callM1NextAction = getNextAction;
+
+/**
+ * Retrieve compact, relevant persistent context for candidate from Knowledge Graph.
+ */
+export async function getRelevantPersistentContext(
+  candidateId: string,
+  competencyId?: string
+): Promise<any> {
+  try {
+    const url = new URL(`${getIntelUrl()}/v1/knowledge-graph/candidates/${candidateId}/context`);
+    if (competencyId) url.searchParams.set('competency_id', competencyId);
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn('[M1Client] Persistent context query warning:', e);
+  }
+  return {
+    candidate_id: candidateId,
+    candidate_name: 'Alex Johnson',
+    summary_text: '',
+  };
+}
+
+/**
+ * Retrieve prior round technical context for persona handoffs (e.g., Alex -> Jordan).
+ */
+export async function getCrossRoundContext(
+  candidateId: string,
+  currentCompetency?: string
+): Promise<any> {
+  try {
+    const url = new URL(`${getIntelUrl()}/v1/knowledge-graph/candidates/${candidateId}/cross-round`);
+    if (currentCompetency) url.searchParams.set('current_competency', currentCompetency);
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn('[M1Client] Cross round context query warning:', e);
+  }
+  return {
+    candidate_id: candidateId,
+    candidate_name: 'Alex Johnson',
+    grounded_bridge_prompt: '',
+  };
+}
+
+/**
+ * Ingest candidate CV into Knowledge Graph.
+ */
+export async function ingestCandidateCV(
+  candidateId: string,
+  cvText: string,
+  candidateName: string = 'Alex Johnson'
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${getIntelUrl()}/v1/knowledge-graph/cv`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        candidate_id: candidateId,
+        cv_text: cvText,
+        candidate_name: candidateName,
+      }),
+      signal: AbortSignal.timeout(6000),
+    });
+    return res.ok;
+  } catch (e) {
+    console.warn('[M1Client] CV ingest warning:', e);
+    return false;
+  }
+}
+
+/**
+ * Get read-only visualization data for developer UI.
+ */
+export async function getGraphVisualization(candidateId: string): Promise<any> {
+  try {
+    const res = await fetch(
+      `${getIntelUrl()}/v1/knowledge-graph/candidates/${candidateId}/visualization`,
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(5000),
+      }
+    );
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn('[M1Client] Graph visualization warning:', e);
+  }
+  return { nodes: [], links: [] };
 }
 
 /**
