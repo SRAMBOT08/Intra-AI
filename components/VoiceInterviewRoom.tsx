@@ -140,6 +140,7 @@ export function VoiceInterviewRoom({
   // Join Agora RTC Channel and Initialize Conversational AI Agent
   useEffect(() => {
     let isMounted = true;
+    const myUid = Math.floor(Math.random() * 800000) + 100000;
 
     async function initAgoraVoice() {
       try {
@@ -153,8 +154,8 @@ export function VoiceInterviewRoom({
         // Enable Agora audio volume indication for real-time waveform visualizer
         client.enableAudioVolumeIndicator();
         client.on('volume-indicator', (volumes) => {
-          const remoteVol = volumes.find((v) => v.uid === DEFAULT_AGENT_UID || v.uid !== candidateUid);
-          const localVol = volumes.find((v) => v.uid === candidateUid || v.uid === 0);
+          const remoteVol = volumes.find((v) => v.uid === DEFAULT_AGENT_UID || v.uid !== myUid);
+          const localVol = volumes.find((v) => v.uid === myUid || v.uid === 0);
 
           if (remoteVol && remoteVol.level > 10) {
             setCallStatus('SPEAKING');
@@ -201,7 +202,7 @@ export function VoiceInterviewRoom({
 
         try {
           const tokenRes = await fetch(
-            `/api/generate-agora-token?channel=${encodeURIComponent(channelName)}&uid=${candidateUid}`
+            `/api/generate-agora-token?channel=${encodeURIComponent(channelName)}&uid=${myUid}`
           );
           if (tokenRes.ok) {
             const tokenData = await tokenRes.json();
@@ -211,8 +212,12 @@ export function VoiceInterviewRoom({
           console.warn('[AgoraRTC] Could not generate token, attempting join with null token:', e);
         }
 
+        if (!isMounted) return;
+
         // 4. Join the Agora RTC Channel
-        await client.join(appId, channelName, token, candidateUid);
+        if (client.connectionState === 'DISCONNECTED') {
+          await client.join(appId, channelName, token, myUid);
+        }
         if (!isMounted) return;
         setChannelConnected(true);
 
@@ -221,14 +226,16 @@ export function VoiceInterviewRoom({
           selectedMicrophone ? { microphoneId: selectedMicrophone } : undefined
         );
         localAudioTrackRef.current = localTrack;
-        await client.publish([localTrack]);
+        if (client.connectionState === 'CONNECTED') {
+          await client.publish([localTrack]);
+        }
 
         // 6. Invite the Agora Conversational AI Agent to the channel
         const inviteRes = await fetch('/api/invite-agent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            requester_id: String(candidateUid),
+            requester_id: String(myUid),
             channel_name: channelName,
             interview_id: interviewId,
             initial_agent_id: initialAgentId,
