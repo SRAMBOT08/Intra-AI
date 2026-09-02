@@ -9,23 +9,38 @@ from src.knowledge_graph.types.relationships import RelationshipType
 class CVKnowledgeExtractor:
     """Extracts explicit, verified facts from candidate CV text into GraphUpdate."""
 
-    # Known technology and skill keywords for grounding
+    # Known technology and skill keywords for grounding and entity normalization
     KNOWN_TECHS = {
         "postgresql": "PostgreSQL",
         "postgres": "PostgreSQL",
+        "postgres db": "PostgreSQL",
         "redis": "Redis",
         "aurora": "Amazon Aurora",
         "kafka": "Apache Kafka",
+        "apache kafka": "Apache Kafka",
         "docker": "Docker",
         "kubernetes": "Kubernetes",
         "k8s": "Kubernetes",
         "python": "Python",
         "fastapi": "FastAPI",
         "react": "React",
+        "reactjs": "React",
+        "react.js": "React",
         "nextjs": "Next.js",
+        "next.js": "Next.js",
         "aws": "AWS",
         "pgbouncer": "PgBouncer",
         "ecs": "AWS ECS",
+        "cockroachdb": "CockroachDB",
+        "cockroach": "CockroachDB",
+        "envoy": "Envoy",
+        "graphql": "GraphQL",
+        "grpc": "gRPC",
+        "typescript": "TypeScript",
+        "debezium": "Debezium",
+        "temporal": "Temporal.io",
+        "snowflake": "Snowflake",
+        "clickhouse": "ClickHouse",
     }
 
     KNOWN_CONCEPTS = {
@@ -37,6 +52,12 @@ class CVKnowledgeExtractor:
         "connection pooling": "Connection Pooling",
         "write-through": "Write-Through Caching",
         "event-driven": "Event-Driven Architecture",
+        "raft": "Raft Consensus",
+        "consensus": "Consensus",
+        "change data capture": "Change Data Capture",
+        "cdc": "Change Data Capture",
+        "saga": "Saga Pattern",
+        "active-active": "Active-Active Replication",
     }
 
     @classmethod

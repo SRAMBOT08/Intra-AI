@@ -13,8 +13,11 @@ import {
   Building2,
   Clock,
   User,
+  GitGraph,
+  ExternalLink,
 } from 'lucide-react';
 import { AssessmentReport } from '@/types/echosphere';
+import { KnowledgeGraphVisualizer } from '@/components/KnowledgeGraphVisualizer';
 import Link from 'next/link';
 
 interface AssessmentReportViewProps {
@@ -38,12 +41,21 @@ export function AssessmentReportView({ report }: AssessmentReportViewProps) {
           </Link>
 
           <div className="flex items-center gap-3">
+            <a
+              href={`/api/interviews/${report.interview_id}/report/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-pale-indigo/60 bg-pure-white px-4 py-2 text-xs font-medium text-deep-indigo hover:border-deep-indigo transition-colors shadow-sm"
+            >
+              <ExternalLink className="h-3.5 w-3.5 text-deep-indigo" />
+              Printable PDF View
+            </a>
             <button
               onClick={() => window.print()}
-              className="inline-flex items-center gap-2 rounded-full bg-deep-indigo px-5 py-2 text-xs font-medium text-pure-white shadow-cta-yellow transition-all hover:bg-deep-indigo/90"
+              className="inline-flex items-center gap-2 rounded-full bg-deep-indigo px-5 py-2 text-xs font-medium text-pure-white shadow-cta-yellow transition-all hover:bg-deep-indigo/90 cursor-pointer"
             >
               <Download className="h-3.5 w-3.5 text-yellow-accent" />
-              Export Assessment
+              Print / Save PDF
             </button>
           </div>
         </div>
@@ -102,21 +114,22 @@ export function AssessmentReportView({ report }: AssessmentReportViewProps) {
           </div>
         </div>
 
-        {/* Competencies Breakdown with Grounded Evidence */}
+        {/* Competencies Section */}
         <div className="space-y-4">
-          <h2 className="text-xl font-medium text-deep-indigo tracking-tight flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-deep-indigo" /> Evaluated Competency Scorecards
-          </h2>
+          <div className="flex items-center gap-2 text-base font-medium text-deep-indigo">
+            <ShieldCheck className="h-5 w-5 text-teal-accent" />
+            Competency Evaluation Breakdown
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {Object.entries(report.evaluated_competencies).map(([compName, finding]) => (
+            {Object.entries(report.evaluated_competencies || report.competency_breakdown || {}).map(([compName, finding]) => (
               <div
                 key={compName}
-                className="rounded-[24px] border border-pale-indigo/40 bg-pure-white p-6 shadow-card-default flex flex-col justify-between space-y-4"
+                className="flex flex-col justify-between rounded-[28px] border border-pale-indigo/40 bg-pure-white p-6 shadow-card-default space-y-4"
               >
                 <div>
                   <div className="flex items-center justify-between">
-                    <h3 className="text-base font-medium text-deep-indigo capitalize tracking-tight">
+                    <h3 className="text-sm font-medium text-deep-indigo capitalize">
                       {compName.replace(/_/g, ' ')}
                     </h3>
                     <span
@@ -168,6 +181,24 @@ export function AssessmentReportView({ report }: AssessmentReportViewProps) {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Knowledge Graph Card */}
+        <div className="rounded-[28px] border border-pale-indigo/40 bg-pure-white p-7 shadow-card-default space-y-4">
+          <div className="flex items-center justify-between border-b border-pale-indigo/30 pb-3">
+            <h3 className="text-base font-medium text-deep-indigo flex items-center gap-2 tracking-tight">
+              <GitGraph className="h-5 w-5 text-deep-indigo" /> Persistent Candidate Knowledge Graph
+            </h3>
+            <span className="text-xs text-muted-indigo font-mono">
+              Provenance: Candidate $\to$ Answer $\to$ Evidence $\to$ Competency
+            </span>
+          </div>
+          <p className="text-xs text-muted-indigo">
+            Structured candidate knowledge extracted from CV facts and verified spoken answers across interview turns.
+          </p>
+          <div className="pt-2">
+            <KnowledgeGraphVisualizer candidateId={report.candidate_id} />
           </div>
         </div>
 

@@ -95,6 +95,8 @@ export type InterviewStatus =
 export interface InterviewSession {
   interview_id: string;
   candidate_id: string;
+  candidate_name?: string;
+  cv_text?: string;
   job_id: string;
   job_title: string;
   job_description: string;
@@ -125,6 +127,14 @@ export interface AssessmentReport {
   overall_recommendation: 'STRONG_HIRE' | 'HIRE' | 'POTENTIAL_FIT' | 'NO_HIRE';
   overall_score: number;
   evaluated_competencies: Record<
+    string,
+    {
+      rating: PerformanceRating;
+      confidence: number;
+      evidence: EvidenceItem[];
+    }
+  >;
+  competency_breakdown?: Record<
     string,
     {
       rating: PerformanceRating;

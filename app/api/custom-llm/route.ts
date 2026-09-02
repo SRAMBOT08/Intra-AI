@@ -357,8 +357,25 @@ export async function POST(req: NextRequest) {
         text: responseText,
       });
     } else {
-      // First turn greeting from Alex
-      responseText = `Hello! I'm Alex, your technical interviewer today. We will evaluate system design, scalability, and customer impact. To start, could you walk me through how you design your database and caching tier for high-throughput reads?`;
+      // First turn opening greeting from Alex (grounded in verified CV knowledge if present)
+      let initialContext = null;
+      try {
+        initialContext = await getRelevantPersistentContext(session.candidate_id, 'system_design');
+      } catch (err) {
+        console.warn(`[CustomLLMAdapter] [${requestId}] Could not load initial persistent context:`, err);
+      }
+
+      const verifiedTechs = initialContext?.relevant_technologies || [];
+      const verifiedProjects = initialContext?.relevant_projects || [];
+
+      if (verifiedProjects.length > 0 && verifiedTechs.length > 0) {
+        responseText = `Hello! I'm Alex, your technical interviewer today. We'll explore system design, scalability, and customer impact. I see you've built architectures like your ${verifiedProjects[0]} using ${verifiedTechs.slice(0, 2).join(' and ')}. To start, could you walk me through the architecture of that system and the primary scalability challenges you encountered?`;
+      } else if (verifiedTechs.length > 0) {
+        responseText = `Hello! I'm Alex, your technical interviewer today. We'll explore system design, scalability, and customer impact. I see you've worked with ${verifiedTechs.slice(0, 2).join(' and ')}. To start, could you walk me through how you design your database and caching tier for high-throughput reads?`;
+      } else {
+        responseText = `Hello! I'm Alex, your technical interviewer today. We will evaluate system design, scalability, and customer impact. To start, could you walk me through how you design your database and caching tier for high-throughput reads?`;
+      }
+
       recordTranscriptTurn(interviewId, {
         speaker: 'interviewer',
         persona: 'Alex',
