@@ -77,9 +77,20 @@ export function createSession(params: {
   return session;
 }
 
-export function getSession(idOrChannel: string): InterviewSession | null {
-  if (!idOrChannel) return null;
-  return sessions.get(idOrChannel) || null;
+export function getSession(idOrChannel?: string): InterviewSession | null {
+  if (idOrChannel) {
+    return sessions.get(idOrChannel) || null;
+  }
+  // Only if id is not specified, find the most recently active session
+  const allSessions = Array.from(sessions.values());
+  if (allSessions.length > 0) {
+    const active = allSessions
+      .filter((s) => s.status !== 'COMPLETED')
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+    if (active.length > 0) return active[0];
+    return allSessions.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0];
+  }
+  return null;
 }
 
 export function updateSessionStatus(idOrChannel: string, status: InterviewStatus): InterviewSession | null {

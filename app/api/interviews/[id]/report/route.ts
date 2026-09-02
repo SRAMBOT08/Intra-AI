@@ -12,5 +12,5 @@ export async function GET(
   }
 
   const report = generateAssessmentReport(id);
-  return NextResponse.json(report);
+  return NextResponse.json({ ...report, session });
 }

@@ -55,7 +55,9 @@ export async function POST(request: NextRequest) {
     });
 
     const customLlmUrl = process.env.NEXT_PUBLIC_APP_URL
-      ? `${process.env.NEXT_PUBLIC_APP_URL}/api/custom-llm`
+      ? `${process.env.NEXT_PUBLIC_APP_URL}/api/custom-llm?interview_id=${encodeURIComponent(
+          interview_id || channel_name
+        )}`
       : undefined;
 
     const agent = new Agent({
