@@ -138,3 +138,47 @@ export interface AssessmentReport {
   total_turns: number;
   completed_at: string;
 }
+
+export interface RelevantPersistentContext {
+  candidate_id: string;
+  candidate_name: string;
+  relevant_experiences: Array<{
+    title: string;
+    organization?: string | null;
+    description?: string | null;
+  }>;
+  relevant_skills: string[];
+  relevant_technologies: string[];
+  relevant_concepts: string[];
+  prior_evidence: Array<{
+    id: string;
+    statement: string;
+    strength: string;
+  }>;
+  prior_assessments: Record<string, string>;
+  unresolved_contradictions: Array<{
+    source_evidence_id: string;
+    source_statement: string;
+    contradicted_evidence_id: string;
+    contradicted_statement: string;
+    confidence: number;
+    details: string;
+  }>;
+  summary_text: string;
+}
+
+export interface CrossRoundContext {
+  candidate_id: string;
+  candidate_name: string;
+  completed_rounds: number[];
+  technical_highlights: string[];
+  verified_technologies: string[];
+  verified_concepts: string[];
+  prior_competency_ratings: Record<string, string>;
+  grounded_bridge_prompt: string;
+}
+
+export interface GraphVisualizationData {
+  nodes: Array<{ id: string; label: string; type: string }>;
+  links: Array<{ source: string; target: string; type: string; confidence: number }>;
+}

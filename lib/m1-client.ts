@@ -88,6 +88,110 @@ export const callM1Analyze = analyzeAnswer;
 export const callM1NextAction = getNextAction;
 
 /**
+ * Retrieve compact, relevant persistent context for candidate from Knowledge Graph.
+ */
+export async function getRelevantPersistentContext(
+  candidateId: string,
+  competencyId?: string
+): Promise<any> {
+  try {
+    const url = new URL(`${getIntelUrl()}/v1/knowledge-graph/candidates/${candidateId}/context`);
+    if (competencyId) url.searchParams.set('competency_id', competencyId);
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn('[M1Client] Persistent context query warning:', e);
+  }
+  return {
+    candidate_id: candidateId,
+    candidate_name: 'Alex Johnson',
+    summary_text: '',
+  };
+}
+
+/**
+ * Retrieve prior round technical context for persona handoffs (e.g., Alex -> Jordan).
+ */
+export async function getCrossRoundContext(
+  candidateId: string,
+  currentCompetency?: string
+): Promise<any> {
+  try {
+    const url = new URL(`${getIntelUrl()}/v1/knowledge-graph/candidates/${candidateId}/cross-round`);
+    if (currentCompetency) url.searchParams.set('current_competency', currentCompetency);
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn('[M1Client] Cross round context query warning:', e);
+  }
+  return {
+    candidate_id: candidateId,
+    candidate_name: 'Alex Johnson',
+    grounded_bridge_prompt: '',
+  };
+}
+
+/**
+ * Ingest candidate CV into Knowledge Graph.
+ */
+export async function ingestCandidateCV(
+  candidateId: string,
+  cvText: string,
+  candidateName: string = 'Alex Johnson'
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${getIntelUrl()}/v1/knowledge-graph/cv`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        candidate_id: candidateId,
+        cv_text: cvText,
+        candidate_name: candidateName,
+      }),
+      signal: AbortSignal.timeout(6000),
+    });
+    return res.ok;
+  } catch (e) {
+    console.warn('[M1Client] CV ingest warning:', e);
+    return false;
+  }
+}
+
+/**
+ * Get read-only visualization data for developer UI.
+ */
+export async function getGraphVisualization(candidateId: string): Promise<any> {
+  try {
+    const res = await fetch(
+      `${getIntelUrl()}/v1/knowledge-graph/candidates/${candidateId}/visualization`,
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(5000),
+      }
+    );
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn('[M1Client] Graph visualization warning:', e);
+  }
+  return { nodes: [], links: [] };
+}
+
+/**
  * Safe fallback for Intelligence failure (preserves conversational flow without inventing high confidence).
  */
 function createFallbackAnalysis(payload: AnalyzePayload, answerId: string): AnswerAnalysis {

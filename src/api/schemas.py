@@ -63,3 +63,27 @@ class HealthResponse(BaseModel):
     service: str
     port: int
     version: str = "0.1.0"
+
+
+class CVIngestRequest(BaseModel):
+    """Payload for POST /v1/knowledge-graph/cv."""
+    candidate_id: str = Field(..., min_length=1)
+    cv_text: str = Field(..., min_length=1)
+    candidate_name: str = Field(default="Alex Johnson")
+    round_id: str = Field(default="ROUND-000")
+
+
+class JDIngestRequest(BaseModel):
+    """Payload for POST /v1/knowledge-graph/jd."""
+    job_id: str = Field(..., min_length=1)
+    job_title: str = Field(..., min_length=1)
+    job_description: str = Field(..., min_length=1)
+    required_competencies: Optional[List[str]] = Field(default=None)
+
+
+class GraphUpdateResponse(BaseModel):
+    """Response payload for Knowledge Graph operations."""
+    success: bool
+    message: str = "Knowledge Graph updated successfully"
+    candidate_id: Optional[str] = None
+

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeAnswer, getNextAction } from '@/lib/m1-client';
+import {
+  analyzeAnswer,
+  getCrossRoundContext,
+  getNextAction,
+  getRelevantPersistentContext,
+} from '@/lib/m1-client';
 import {
   applyAnswerAnalysis,
   createSession,
@@ -8,11 +13,17 @@ import {
 } from '@/lib/session-store';
 import { executeNextAction, ExecutionResult } from '@/lib/action-executor';
 import { getPersona, PERSONAS } from '@/lib/personas';
-import { AgentProfile, AnswerAnalysis, NextAction } from '@/types/echosphere';
+import {
+  AgentProfile,
+  AnswerAnalysis,
+  CrossRoundContext,
+  NextAction,
+  RelevantPersistentContext,
+} from '@/types/echosphere';
 
 /**
  * Dynamic contextual fallback engine when LLM rate limits (429) or network timeouts occur.
- * NEVER endlessly repeats the opening question. Intelligently redirects and probes.
+ * NEVER endlessly repeats the opening question. Intelligently redirects and probes using persistent graph facts.
  */
 function generateAdaptiveDialogueFallback(params: {
   persona: AgentProfile;
@@ -22,6 +33,8 @@ function generateAdaptiveDialogueFallback(params: {
   lastQuestion: string;
   analysis: AnswerAnalysis;
   recentTurns: Array<{ speaker: string; persona?: string; text: string }>;
+  persistentContext?: RelevantPersistentContext | null;
+  crossRoundContext?: CrossRoundContext | null;
 }): string {
   const prefix = params.execution.spokenPrefix || '';
   const answer = params.candidateAnswer.trim();
@@ -38,8 +51,13 @@ function generateAdaptiveDialogueFallback(params: {
     return `No worries at all, take your time. Let's break it down simply: if a sudden spike of 10,000 requests hits your database, what is the first component you would scale or protect?`;
   }
 
-  // 2. Dynamic Persona Handoff
+  // 2. Dynamic Persona Handoff (Alex -> Jordan) with Cross-Round Knowledge Grounding
   if (params.nextAction.action === 'SWITCH_AGENT' || params.execution.activePersonaId === 'product') {
+    const verifiedTechs = params.crossRoundContext?.verified_technologies || [];
+    if (verifiedTechs.length > 0) {
+      const techStr = verifiedTechs.slice(0, 2).join(' and ');
+      return `${prefix}Hello, I'm Jordan, Product Lead! Earlier, you detailed using ${techStr} in your architecture. How did those scaling decisions directly translate to user experience and customer conversion metrics during high traffic?`;
+    }
     return `${prefix}Hello, I'm Jordan, Product Lead! Now that we understand the technical design, could you discuss the customer impact and business metrics of this architecture?`;
   }
 
@@ -54,7 +72,12 @@ function generateAdaptiveDialogueFallback(params: {
   }
 
   // 5. Vague Answer Handling
-  if (params.analysis.vague || lower.includes('some servers') || lower.includes('just used a cache') || (answer.split(' ').length < 12 && params.analysis.overall_performance !== 'STRONG')) {
+  if (
+    params.analysis.vague ||
+    lower.includes('some servers') ||
+    lower.includes('just used a cache') ||
+    (answer.split(' ').length < 12 && params.analysis.overall_performance !== 'STRONG')
+  ) {
     if (lower.includes('cache') || lower.includes('redis')) {
       return `You mentioned caching, but could you specify your cache invalidation strategy and eviction policies to prevent stale data?`;
     }
@@ -77,7 +100,7 @@ function generateAdaptiveDialogueFallback(params: {
 
 /**
  * Dynamic LLM dialogue generator for Alex (Technical) and Jordan (Product Lead).
- * Synthesizes natural, highly adaptive dialogue based on NextAction.
+ * Grounded in persistent Knowledge Graph context.
  */
 async function synthesizeInterviewerSpeech(params: {
   persona: AgentProfile;
@@ -87,6 +110,8 @@ async function synthesizeInterviewerSpeech(params: {
   lastQuestion: string;
   analysis: AnswerAnalysis;
   recentTurns: Array<{ speaker: string; persona?: string; text: string }>;
+  persistentContext?: RelevantPersistentContext | null;
+  crossRoundContext?: CrossRoundContext | null;
 }): Promise<string> {
   const apiKey =
     process.env.GEMINI_API_KEY ||
@@ -119,8 +144,15 @@ async function synthesizeInterviewerSpeech(params: {
       )
       .join('\n');
 
+    const persistentSummary = params.persistentContext?.summary_text || '';
+    const bridgePrompt = params.crossRoundContext?.grounded_bridge_prompt || '';
+
     const prompt = `You are ${params.persona.display_name}, the ${params.persona.role} at EchoSphere conducting a live voice interview.
 Interviewer instructions: ${params.persona.instructions}
+
+PERSISTENT KNOWLEDGE GRAPH CONTEXT (VERIFIED CANDIDATE FACTS):
+${persistentSummary ? `- Verified Candidate Profile: ${persistentSummary}` : '- No prior profile summary.'}
+${bridgePrompt ? `- Cross-Round Bridge Grounding: "${bridgePrompt}"` : ''}
 
 CONVERSATION HISTORY:
 ${historyContext || 'No prior turns.'}
@@ -145,14 +177,12 @@ ORCHESTRATOR DECISION:
 ${params.nextAction.action === 'SWITCH_AGENT' ? `- Handoff Transition: "${params.execution.spokenPrefix}"` : ''}
 
 INSTRUCTIONS FOR GENERATING YOUR SPOKEN RESPONSE:
-1. ALWAYS respond contextually to what the candidate JUST said:
-   - If the candidate's answer was unrelated, off-topic, or out-of-context (e.g., sports, movies, chit-chat, nervousness), acknowledge it politely and redirect back to the technical/product question.
-   - If the answer was vague or incomplete, ask a focused probing question about specific tools, metrics, or trade-offs.
-   - If a contradiction was detected, ask a polite clarifying probe.
-   - If the answer was strong, acknowledge the point concisely and advance to the next challenge as directed by the orchestrator.
-2. DO NOT repeat the previous question verbatim unless explicitly asked.
-3. Keep your spoken response natural, conversational, and concise (1-2 sentences maximum).
-4. Output ONLY the plain dialogue text to be spoken.`;
+1. ALWAYS respond contextually to what the candidate JUST said. Ground your follow-up in the verified Knowledge Graph facts without inventing ungrounded claims.
+2. If this is a persona handoff (Jordan taking over), reference the candidate's verified technical design (e.g. caching, databases, scaling) to ask about customer impact.
+3. If the candidate's answer was off-topic, politely redirect back to the topic.
+4. If the answer was vague or contradictory, probe with a specific technical question.
+5. Keep your spoken response natural, conversational, and concise (1-2 sentences maximum).
+6. Output ONLY the plain dialogue text to be spoken.`;
 
     for (const model of modelsToTry) {
       try {
@@ -294,7 +324,15 @@ export async function POST(req: NextRequest) {
 
       const activePersonaProfile = getPersona(execution.activePersonaId);
 
-      // 7. Dynamically synthesize spoken response using LLM or dynamic adaptive engine
+      // 7. Retrieve Persistent Context and Cross-Round Context from Knowledge Graph
+      const [persistentContext, crossRoundContext] = await Promise.all([
+        getRelevantPersistentContext(session.candidate_id, targetCompetency),
+        execution.activePersonaId === 'product'
+          ? getCrossRoundContext(session.candidate_id, 'customer_impact')
+          : Promise.resolve(null),
+      ]);
+
+      // 8. Dynamically synthesize spoken response using LLM or dynamic adaptive engine
       responseText = await synthesizeInterviewerSpeech({
         persona: activePersonaProfile,
         nextAction,
@@ -303,6 +341,8 @@ export async function POST(req: NextRequest) {
         lastQuestion: lastAssistantMessage,
         analysis,
         recentTurns: session.transcript_history.slice(-6),
+        persistentContext,
+        crossRoundContext,
       });
 
       console.log(`[CustomLLMAdapter] [${requestId}] Final Spoken Response:`, {
@@ -310,7 +350,7 @@ export async function POST(req: NextRequest) {
         response_snippet: responseText.slice(0, 80),
       });
 
-      // 8. Record interviewer turn
+      // 9. Record interviewer turn
       recordTranscriptTurn(interviewId, {
         speaker: 'interviewer',
         persona: execution.activePersonaName,
