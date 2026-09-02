@@ -5,23 +5,28 @@ import { ShieldCheck, Sparkles, Cpu, Users } from 'lucide-react';
 import { PERSONAS } from '@/lib/personas';
 
 interface ActivePersonaBadgeProps {
-  personaId: string;
+  personaId?: string;
+  agentId?: string;
   isSpeaking?: boolean;
   isListening?: boolean;
+  currentCompetency?: string;
 }
 
 export function ActivePersonaBadge({
   personaId,
+  agentId,
   isSpeaking = false,
   isListening = false,
+  currentCompetency,
 }: ActivePersonaBadgeProps) {
-  const persona = PERSONAS[personaId.toLowerCase()] || PERSONAS.technical;
+  const rawId = (personaId || agentId || 'technical').toString().toLowerCase();
+  const persona = PERSONAS[rawId] || PERSONAS.technical;
   const isTechnical = persona.agent_id === 'technical';
 
   return (
     <div className="relative overflow-hidden rounded-[24px] border border-pale-indigo/40 bg-pure-white p-6 shadow-card-default transition-all duration-300">
       <div className="flex items-center gap-5">
-        {/* Avatar Orb with Teal Accent ring */}
+        {/* Avatar Orb with Teal / Yellow Accent ring */}
         <div
           className={`relative flex h-16 w-16 items-center justify-center rounded-[20px] transition-all duration-300 ${
             isTechnical
@@ -38,7 +43,7 @@ export function ActivePersonaBadge({
           {/* Pulse ring when active */}
           {(isSpeaking || isListening) && (
             <span
-              className={`absolute -inset-1 rounded-[22px] animate-ping opacity-25 ${
+              className={`absolute -inset-1 rounded-[22px] opacity-40 animate-ping pointer-events-none ${
                 isTechnical ? 'bg-teal-accent' : 'bg-yellow-accent'
               }`}
             />
@@ -69,15 +74,22 @@ export function ActivePersonaBadge({
 
           {/* Focal Competencies */}
           <div className="mt-2.5 flex flex-wrap gap-2">
-            {persona.focal_competencies.map((comp) => (
-              <span
-                key={comp}
-                className="inline-flex items-center gap-1.5 rounded-full bg-light-surface px-3 py-1 text-xs font-medium text-deep-indigo border border-pale-indigo/40"
-              >
-                <ShieldCheck className="h-3.5 w-3.5 text-teal-accent" />
-                {comp.replace(/_/g, ' ')}
-              </span>
-            ))}
+            {persona.focal_competencies.map((comp) => {
+              const isFocalCurrent = currentCompetency === comp;
+              return (
+                <span
+                  key={comp}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    isFocalCurrent
+                      ? 'bg-yellow-accent/30 text-deep-indigo border border-yellow-accent'
+                      : 'bg-light-surface text-deep-indigo border border-pale-indigo/40'
+                  }`}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5 text-teal-accent" />
+                  {comp.replace(/_/g, ' ')}
+                </span>
+              );
+            })}
           </div>
         </div>
 
