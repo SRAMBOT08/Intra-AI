@@ -8,7 +8,6 @@ import {
   Quote,
   ArrowLeft,
   Download,
-  Share2,
   Sparkles,
   ShieldCheck,
   Building2,
@@ -26,77 +25,77 @@ export function AssessmentReportView({ report }: AssessmentReportViewProps) {
   const isStrong = report.overall_recommendation === 'STRONG_HIRE' || report.overall_score >= 80;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-8">
+    <div className="min-h-screen bg-light-surface text-deep-indigo font-sora py-12 px-6">
       <div className="mx-auto max-w-5xl space-y-8">
         {/* Navigation & Actions */}
         <div className="flex items-center justify-between">
           <Link
             href="/recruiter/interviews/new"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+            className="inline-flex items-center gap-2 rounded-full border border-pale-indigo/50 bg-pure-white px-4 py-2 text-xs font-medium text-deep-indigo hover:border-deep-indigo transition-colors shadow-sm"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Interview Setup
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800"
+              className="inline-flex items-center gap-2 rounded-full bg-deep-indigo px-5 py-2 text-xs font-medium text-pure-white shadow-cta-yellow transition-all hover:bg-deep-indigo/90"
             >
-              <Download className="h-3.5 w-3.5 text-slate-400" />
-              Export PDF
+              <Download className="h-3.5 w-3.5 text-yellow-accent" />
+              Export Assessment
             </button>
           </div>
         </div>
 
         {/* Hero Header Card */}
-        <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900/90 to-slate-950 p-8 shadow-2xl">
+        <div className="relative overflow-hidden rounded-[35px] border border-pale-indigo/40 bg-pure-white p-8 md:p-10 shadow-card-default">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <div className="flex items-center gap-2 text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-2">
-                <Sparkles className="h-3.5 w-3.5" /> EchoSphere Candidate Assessment
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-yellow-accent/20 px-3 py-1 text-xs font-medium text-deep-indigo border border-yellow-accent/50 mb-3">
+                <Sparkles className="h-3.5 w-3.5" /> Grounded Assessment Report
               </div>
-              <h1 className="text-3xl font-extrabold text-white tracking-tight">
+              <h1 className="text-3xl md:text-4xl font-medium text-deep-indigo tracking-tight-section">
                 {report.candidate_name}
               </h1>
-              <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-400">
+              <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-indigo">
                 <span className="flex items-center gap-1.5">
-                  <Building2 className="h-3.5 w-3.5 text-slate-500" /> {report.job_title}
+                  <Building2 className="h-3.5 w-3.5 text-deep-indigo" /> {report.job_title}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-slate-500" /> Completed on{' '}
+                  <Clock className="h-3.5 w-3.5 text-deep-indigo" /> Completed on{' '}
                   {new Date(report.completed_at).toLocaleDateString()}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <User className="h-3.5 w-3.5 text-slate-500" /> Interview ID: {report.interview_id}
+                  <User className="h-3.5 w-3.5 text-deep-indigo" /> Session ID: {report.interview_id}
                 </span>
               </div>
             </div>
 
-            {/* Score & Recommendation Badge */}
-            <div className="flex items-center gap-4 rounded-2xl border border-slate-700/80 bg-slate-950/60 p-4 shadow-xl">
-              <div className="text-center pr-4 border-r border-slate-800">
-                <div className="text-3xl font-black text-cyan-400 font-mono">
+            {/* Score & Recommendation Card */}
+            <div className="flex items-center gap-5 rounded-[24px] border border-pale-indigo/40 bg-light-surface p-5 shadow-sm">
+              <div className="text-center pr-5 border-r border-pale-indigo/50">
+                <div className="text-3xl md:text-4xl font-medium text-deep-indigo tracking-tight">
                   {report.overall_score}%
                 </div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-indigo mt-0.5">
                   Overall Score
                 </div>
               </div>
 
               <div>
                 <span
-                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-medium ${
                     isStrong
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                      ? 'bg-teal-accent/20 text-deep-indigo border border-teal-accent'
+                      : 'bg-yellow-accent/25 text-deep-indigo border border-yellow-accent'
                   }`}
                 >
-                  <Award className="h-3.5 w-3.5" />
+                  <Award className="h-3.5 w-3.5 text-deep-indigo" />
                   {report.overall_recommendation.replace(/_/g, ' ')}
                 </span>
-                <div className="mt-1 text-[10px] text-slate-400">
-                  {report.total_turns} conversational turns analyzed
+                <div className="mt-1 text-xs text-muted-indigo">
+                  {report.total_turns} turns evaluated
                 </div>
               </div>
             </div>
@@ -105,66 +104,64 @@ export function AssessmentReportView({ report }: AssessmentReportViewProps) {
 
         {/* Competencies Breakdown with Grounded Evidence */}
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-cyan-400" /> Evaluated Competency Scorecards
+          <h2 className="text-xl font-medium text-deep-indigo tracking-tight flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-deep-indigo" /> Evaluated Competency Scorecards
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {Object.entries(report.evaluated_competencies).map(([compName, finding]) => (
               <div
                 key={compName}
-                className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-xl flex flex-col justify-between space-y-4"
+                className="rounded-[24px] border border-pale-indigo/40 bg-pure-white p-6 shadow-card-default flex flex-col justify-between space-y-4"
               >
                 <div>
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-white capitalize">
+                    <h3 className="text-base font-medium text-deep-indigo capitalize tracking-tight">
                       {compName.replace(/_/g, ' ')}
                     </h3>
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                         finding.rating === 'STRONG'
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          ? 'bg-teal-accent/20 text-deep-indigo border border-teal-accent'
                           : finding.rating === 'PARTIAL'
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          ? 'bg-yellow-accent/25 text-deep-indigo border border-yellow-accent'
+                          : 'bg-rose-100 text-rose-800 border border-rose-300'
                       }`}
                     >
                       {finding.rating}
                     </span>
                   </div>
 
-                  <div className="mt-2 text-xs text-slate-400 flex items-center justify-between">
+                  <div className="mt-3 text-xs text-muted-indigo flex items-center justify-between">
                     <span>Confidence</span>
-                    <span className="font-mono text-slate-200">
+                    <span className="font-medium text-deep-indigo">
                       {(finding.confidence * 100).toFixed(0)}%
                     </span>
                   </div>
-                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+                  <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-light-surface border border-pale-indigo/30">
                     <div
-                      className={`h-full ${
-                        finding.rating === 'STRONG' ? 'bg-emerald-500' : 'bg-amber-500'
-                      }`}
+                      className="h-full bg-deep-indigo transition-all duration-500"
                       style={{ width: `${finding.confidence * 100}%` }}
                     />
                   </div>
                 </div>
 
                 {/* Grounded Evidence Quotes */}
-                <div className="space-y-2 border-t border-slate-800/80 pt-3">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                    <Quote className="h-3 w-3 text-cyan-400" /> Grounded Evidence
+                <div className="space-y-2 border-t border-pale-indigo/30 pt-4">
+                  <div className="text-[11px] font-medium uppercase tracking-wider text-muted-indigo flex items-center gap-1.5">
+                    <Quote className="h-3.5 w-3.5 text-deep-indigo" /> Grounded Evidence
                   </div>
                   {finding.evidence && finding.evidence.length > 0 ? (
                     finding.evidence.map((ev) => (
                       <p
                         key={ev.evidence_id}
-                        className="text-[11px] leading-relaxed text-slate-300 italic rounded-lg bg-slate-950/80 p-2.5 border border-slate-800"
+                        className="text-xs leading-relaxed text-deep-indigo italic rounded-[16px] bg-light-surface p-3 border border-pale-indigo/30"
                       >
                         &ldquo;{ev.statement}&rdquo;
                       </p>
                     ))
                   ) : (
-                    <p className="text-[11px] text-slate-500 italic">
+                    <p className="text-xs text-muted-indigo italic">
                       Candidate demonstrated solid architectural rationale during discussion.
                     </p>
                   )}
@@ -177,30 +174,30 @@ export function AssessmentReportView({ report }: AssessmentReportViewProps) {
         {/* Strengths and Weaknesses Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Key Strengths */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-4">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Key Demonstrated Strengths
+          <div className="rounded-[24px] border border-pale-indigo/40 bg-pure-white p-7 shadow-card-default">
+            <h3 className="text-base font-medium text-deep-indigo flex items-center gap-2 mb-4 tracking-tight">
+              <CheckCircle2 className="h-4 w-4 text-teal-accent" /> Key Demonstrated Strengths
             </h3>
-            <ul className="space-y-2.5">
+            <ul className="space-y-3">
               {report.strengths.map((str, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-xs text-slate-300">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
-                  <span>{str}</span>
+                <li key={i} className="flex items-start gap-3 text-xs text-muted-indigo">
+                  <span className="h-2 w-2 rounded-full bg-teal-accent mt-1 shrink-0" />
+                  <span className="text-deep-indigo font-normal leading-relaxed">{str}</span>
                 </li>
               ))}
             </ul>
           </div>
 
           {/* Areas for Review */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-4">
-              <AlertTriangle className="h-4 w-4 text-amber-400" /> Areas for Review / Follow-up
+          <div className="rounded-[24px] border border-pale-indigo/40 bg-pure-white p-7 shadow-card-default">
+            <h3 className="text-base font-medium text-deep-indigo flex items-center gap-2 mb-4 tracking-tight">
+              <AlertTriangle className="h-4 w-4 text-yellow-accent" /> Areas for Review / Follow-up
             </h3>
-            <ul className="space-y-2.5">
+            <ul className="space-y-3">
               {report.weaknesses.map((weak, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-xs text-slate-300">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
-                  <span>{weak}</span>
+                <li key={i} className="flex items-start gap-3 text-xs text-muted-indigo">
+                  <span className="h-2 w-2 rounded-full bg-yellow-accent mt-1 shrink-0" />
+                  <span className="text-deep-indigo font-normal leading-relaxed">{weak}</span>
                 </li>
               ))}
             </ul>

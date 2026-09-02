@@ -39,20 +39,20 @@ export function MicrophoneSelector({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700/80 focus:outline-none"
+        className="inline-flex items-center gap-2 rounded-full border border-pale-indigo/50 bg-pure-white px-4 py-2 text-xs font-medium text-deep-indigo hover:border-deep-indigo/40 shadow-sm transition-all focus:outline-none"
       >
-        <Mic className="h-3.5 w-3.5 text-cyan-400" />
+        <Mic className="h-3.5 w-3.5 text-deep-indigo" />
         <span className="max-w-[140px] truncate">
           {currentDevice?.label || 'Default Microphone'}
         </span>
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 bottom-full mb-2 w-64 rounded-xl border border-slate-700 bg-slate-900 p-1.5 shadow-xl z-50">
-          <div className="px-2 py-1 text-[10px] font-bold uppercase text-slate-400">
+        <div className="absolute left-0 bottom-full mb-2 w-72 rounded-[20px] border border-pale-indigo/50 bg-pure-white p-2 shadow-card-elevated z-50">
+          <div className="px-3 py-1.5 text-[11px] font-medium uppercase tracking-tight text-muted-indigo">
             Select Microphone
           </div>
-          <div className="max-h-48 overflow-y-auto space-y-0.5">
+          <div className="max-h-48 overflow-y-auto space-y-1">
             {devices.map((device, index) => (
               <button
                 key={device.deviceId || index}
@@ -60,15 +60,15 @@ export function MicrophoneSelector({
                   onDeviceSelect(device.deviceId);
                   setIsOpen(false);
                 }}
-                className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs ${
+                className={`flex w-full items-center justify-between rounded-full px-3.5 py-2 text-left text-xs font-medium transition-colors ${
                   selectedDeviceId === device.deviceId
-                    ? 'bg-cyan-500/20 text-cyan-300 font-semibold'
-                    : 'text-slate-300 hover:bg-slate-800'
+                    ? 'bg-deep-indigo text-pure-white'
+                    : 'text-deep-indigo hover:bg-light-surface'
                 }`}
               >
                 <span className="truncate">{device.label || `Microphone ${index + 1}`}</span>
                 {selectedDeviceId === device.deviceId && (
-                  <Check className="h-3.5 w-3.5 text-cyan-400" />
+                  <Check className="h-3.5 w-3.5 text-yellow-accent" />
                 )}
               </button>
             ))}

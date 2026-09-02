@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Mic,
   MicOff,
@@ -8,10 +8,8 @@ import {
   Volume2,
   VolumeX,
   Sparkles,
-  ShieldCheck,
-  Cpu,
   MessageSquare,
-  AlertCircle,
+  Send,
 } from 'lucide-react';
 import { ActivePersonaBadge } from './ActivePersonaBadge';
 import { ObservabilityDrawer } from './ObservabilityDrawer';
@@ -64,11 +62,11 @@ export function VoiceInterviewRoom({
     transcriptsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcripts]);
 
-  // Simulate audio waveform animation when speaking or listening
+  // Audio animation
   useEffect(() => {
     if (callStatus === 'SPEAKING' || callStatus === 'LISTENING') {
       audioIntervalRef.current = setInterval(() => {
-        setAudioLevel(Math.floor(Math.random() * 55) + 25);
+        setAudioLevel(Math.floor(Math.random() * 50) + 25);
       }, 120);
     } else {
       setAudioLevel(15);
@@ -79,7 +77,7 @@ export function VoiceInterviewRoom({
     };
   }, [callStatus]);
 
-  // Initial connection & Alex's greeting
+  // Initial connection
   useEffect(() => {
     let mounted = true;
     const timer = setTimeout(async () => {
@@ -87,7 +85,6 @@ export function VoiceInterviewRoom({
       setCallStatus('THINKING');
 
       try {
-        // Fetch opening turn from Custom LLM endpoint
         const res = await fetch(`/api/custom-llm?interview_id=${interviewId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -120,7 +117,7 @@ export function VoiceInterviewRoom({
     };
   }, [interviewId]);
 
-  // Handle Candidate Submitting Answer (Voice / Transcript Turn)
+  // Submit Candidate Answer
   const submitCandidateAnswer = async (answerText: string) => {
     if (!answerText.trim() || callStatus === 'THINKING' || callStatus === 'COMPLETED') return;
 
@@ -136,7 +133,6 @@ export function VoiceInterviewRoom({
     setCallStatus('THINKING');
 
     try {
-      // Send turn to Custom LLM Adapter (which invokes M1 :4005 and :4004)
       const res = await fetch(`/api/custom-llm?interview_id=${interviewId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -162,7 +158,6 @@ export function VoiceInterviewRoom({
         }
       }
 
-      // Record interviewer turn
       const personaName = activePersona === 'product' || meta?.latest_action?.target_agent_id === 'product' ? 'Jordan' : 'Alex';
       const interviewerTurn: TranscriptTurn = {
         id: `interv-${Date.now()}`,
@@ -188,17 +183,19 @@ export function VoiceInterviewRoom({
   };
 
   return (
-    <div className="flex h-full min-h-[calc(100vh-4rem)] flex-col bg-slate-950 text-slate-100">
-      {/* Top Banner: Interview Header */}
-      <div className="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 px-6 py-3 backdrop-blur-md">
+    <div className="flex h-full min-h-screen flex-col bg-light-surface text-deep-indigo font-sora">
+      {/* Top Banner: Elevated white surface with pill navigation */}
+      <div className="flex items-center justify-between border-b border-pale-indigo/40 bg-pure-white px-8 py-4 shadow-sm">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-bold text-white tracking-tight">{jobTitle}</h2>
-            <span className="rounded bg-cyan-500/10 px-2 py-0.5 text-xs font-semibold text-cyan-400 border border-cyan-500/30">
-              Live Voice Call
+          <div className="flex items-center gap-3">
+            <h2 className="text-base font-medium text-deep-indigo tracking-tight-card">{jobTitle}</h2>
+            <span className="rounded-full bg-yellow-accent/20 px-3 py-0.5 text-xs font-medium text-deep-indigo border border-yellow-accent/50">
+              Live Voice Interview
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">Candidate: {candidateName} • ID: {interviewId}</p>
+          <p className="text-xs text-muted-indigo mt-0.5">
+            Candidate: <span className="font-medium text-deep-indigo">{candidateName}</span> • Session ID: <span className="font-medium text-deep-indigo">{interviewId}</span>
+          </p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -209,10 +206,10 @@ export function VoiceInterviewRoom({
 
           <button
             onClick={() => setIsSpeakerMuted(!isSpeakerMuted)}
-            className={`rounded-xl border p-2 text-slate-300 transition-colors ${
+            className={`rounded-full border p-2.5 transition-all ${
               isSpeakerMuted
-                ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
-                : 'bg-slate-800/80 border-slate-700 hover:bg-slate-700'
+                ? 'bg-rose-100 border-rose-300 text-rose-700'
+                : 'bg-light-surface border-pale-indigo/50 text-deep-indigo hover:border-deep-indigo'
             }`}
             title={isSpeakerMuted ? 'Unmute Speaker' : 'Mute Speaker'}
           >
@@ -221,65 +218,53 @@ export function VoiceInterviewRoom({
         </div>
       </div>
 
-      {/* Main Workspace Layout */}
-      <div className="grid flex-1 grid-cols-1 lg:grid-cols-12 gap-6 p-6">
-        {/* Left 7 Columns: Active Persona Orb & Visualizer */}
+      {/* Main Workspace Grid */}
+      <div className="grid flex-1 grid-cols-1 lg:grid-cols-12 gap-8 p-8 max-w-7xl mx-auto w-full">
+        {/* Left 7 Columns: Active Persona & Visualizer Frame */}
         <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
-          {/* Active Interviewer Card */}
+          {/* Active Interviewer Persona Card */}
           <ActivePersonaBadge
             personaId={activePersona}
             isSpeaking={callStatus === 'SPEAKING' || callStatus === 'HANDOFF'}
             isListening={callStatus === 'LISTENING'}
           />
 
-          {/* Central Audio Visualizer Orb */}
-          <div className="relative flex flex-1 items-center justify-center rounded-3xl border border-slate-800/80 bg-gradient-to-b from-slate-900/50 via-slate-950 to-slate-950 p-8 shadow-inner">
+          {/* Central Audio Visualizer Frame */}
+          <div className="relative flex flex-1 items-center justify-center rounded-[35px] border border-pale-indigo/40 bg-pure-white p-10 shadow-card-default">
             <div className="relative flex items-center justify-center">
-              {/* Outer pulsing rings */}
+              {/* Outer pulsing rings using Teal Accent and Yellow Accent */}
               <div
-                className={`absolute rounded-full transition-all duration-300 ${
-                  activePersona === 'technical'
-                    ? 'bg-cyan-500/10 border border-cyan-500/20'
-                    : 'bg-amber-500/10 border border-amber-500/20'
-                }`}
+                className="absolute rounded-full transition-all duration-300 bg-teal-accent/15 border border-teal-accent/30"
                 style={{
-                  width: `${audioLevel * 4.2}px`,
-                  height: `${audioLevel * 4.2}px`,
+                  width: `${audioLevel * 4.4}px`,
+                  height: `${audioLevel * 4.4}px`,
                 }}
               />
               <div
-                className={`absolute rounded-full transition-all duration-200 ${
-                  activePersona === 'technical'
-                    ? 'bg-blue-500/15 border border-blue-500/30'
-                    : 'bg-rose-500/15 border border-rose-500/30'
-                }`}
+                className="absolute rounded-full transition-all duration-200 bg-yellow-accent/15 border border-yellow-accent/40"
                 style={{
-                  width: `${audioLevel * 3.2}px`,
-                  height: `${audioLevel * 3.2}px`,
+                  width: `${audioLevel * 3.4}px`,
+                  height: `${audioLevel * 3.4}px`,
                 }}
               />
 
-              {/* Core Pulsing Orb */}
+              {/* Core Deep Indigo Orb */}
               <div
-                className={`relative z-10 flex items-center justify-center rounded-full shadow-2xl transition-all duration-200 ${
-                  activePersona === 'technical'
-                    ? 'bg-gradient-to-tr from-cyan-600 to-blue-500 shadow-cyan-500/40'
-                    : 'bg-gradient-to-tr from-amber-500 to-rose-500 shadow-amber-500/40'
-                }`}
+                className="relative z-10 flex items-center justify-center rounded-full bg-deep-indigo text-pure-white shadow-card-elevated transition-all duration-200"
                 style={{
-                  width: `${Math.max(120, audioLevel * 2.2)}px`,
-                  height: `${Math.max(120, audioLevel * 2.2)}px`,
+                  width: `${Math.max(130, audioLevel * 2.4)}px`,
+                  height: `${Math.max(130, audioLevel * 2.4)}px`,
                 }}
               >
-                <div className="flex flex-col items-center justify-center text-white">
+                <div className="flex flex-col items-center justify-center">
                   {callStatus === 'THINKING' ? (
-                    <Sparkles className="h-8 w-8 animate-spin" />
+                    <Sparkles className="h-8 w-8 text-yellow-accent animate-spin" />
                   ) : callStatus === 'SPEAKING' ? (
-                    <Volume2 className="h-8 w-8 animate-bounce" />
+                    <Volume2 className="h-8 w-8 text-teal-accent animate-bounce" />
                   ) : (
-                    <Mic className="h-8 w-8" />
+                    <Mic className="h-8 w-8 text-pure-white" />
                   )}
-                  <span className="mt-1 text-[11px] font-bold tracking-wider uppercase">
+                  <span className="mt-1.5 text-[11px] font-medium tracking-wider uppercase">
                     {callStatus}
                   </span>
                 </div>
@@ -288,40 +273,43 @@ export function VoiceInterviewRoom({
 
             {/* Subtitle status banner */}
             <div className="absolute bottom-6 text-center">
-              <p className="text-xs text-slate-400 font-medium">
-                {callStatus === 'LISTENING' && 'Agora voice channel active • Speak your answer naturally'}
-                {callStatus === 'THINKING' && 'EchoSphere Intelligence evaluating answer & deciding next action...'}
+              <p className="text-xs font-medium text-muted-indigo">
+                {callStatus === 'LISTENING' && 'Agora voice channel active • Speak naturally'}
+                {callStatus === 'THINKING' && 'EchoSphere evaluating answer & deciding next action...'}
                 {callStatus === 'SPEAKING' && `${activePersona === 'product' ? 'Jordan' : 'Alex'} is speaking`}
                 {callStatus === 'HANDOFF' && 'Dynamic Persona Handoff in progress...'}
-                {callStatus === 'COMPLETED' && 'Interview concluded. Generating evidence report.'}
+                {callStatus === 'COMPLETED' && 'Interview concluded. Preparing assessment report.'}
               </p>
             </div>
           </div>
 
           {/* Audio Controls Bar */}
-          <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-xl">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between rounded-[24px] border border-pale-indigo/40 bg-pure-white p-4 shadow-card-default">
+            <div className="flex items-center gap-4">
               <button
                 onClick={() => setIsMuted(!isMuted)}
-                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
+                className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-medium transition-all ${
                   isMuted
-                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                    : 'bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700'
+                    ? 'bg-rose-100 text-rose-700 border border-rose-300'
+                    : 'bg-light-surface text-deep-indigo border border-pale-indigo/50 hover:border-deep-indigo'
                 }`}
               >
                 {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                 {isMuted ? 'Unmute Mic' : 'Mute Mic'}
               </button>
 
-              <span className="text-xs text-slate-500">• Single continuous Agora RTC audio session</span>
+              <span className="text-xs text-muted-indigo font-normal">
+                Continuous Agora RTC audio session
+              </span>
             </div>
 
+            {/* End Interview with Fikri Yellow Accent Ring */}
             <button
               onClick={() => {
                 setCallStatus('COMPLETED');
                 if (onInterviewComplete) onInterviewComplete();
               }}
-              className="flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-rose-600/20 transition-all"
+              className="flex items-center gap-2 rounded-full bg-deep-indigo px-5 py-2.5 text-xs font-medium text-pure-white shadow-cta-yellow transition-all hover:bg-deep-indigo/90"
             >
               <PhoneOff className="h-4 w-4" />
               End Interview
@@ -329,14 +317,14 @@ export function VoiceInterviewRoom({
           </div>
         </div>
 
-        {/* Right 5 Columns: Realtime Transcript & Interaction */}
-        <div className="lg:col-span-5 flex flex-col rounded-3xl border border-slate-800/80 bg-slate-900/60 p-5 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">Live Conversation Transcript</h3>
+        {/* Right 5 Columns: Live Conversation Transcript */}
+        <div className="lg:col-span-5 flex flex-col rounded-[35px] border border-pale-indigo/40 bg-pure-white p-6 shadow-card-default">
+          <div className="flex items-center justify-between border-b border-pale-indigo/30 pb-4">
+            <div className="flex items-center gap-2.5">
+              <MessageSquare className="h-4 w-4 text-deep-indigo" />
+              <h3 className="text-sm font-medium text-deep-indigo tracking-tight">Conversation Transcript</h3>
             </div>
-            <span className="text-[11px] font-mono text-slate-400">
+            <span className="text-xs font-medium text-muted-indigo bg-light-surface px-2.5 py-0.5 rounded-full border border-pale-indigo/30">
               {transcripts.length} turns
             </span>
           </div>
@@ -350,20 +338,20 @@ export function VoiceInterviewRoom({
                   t.speaker === 'candidate' ? 'items-end' : 'items-start'
                 }`}
               >
-                <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-1 px-1">
-                  <span className="font-semibold text-slate-300">
+                <div className="flex items-center gap-2 text-[11px] text-muted-indigo mb-1 px-1">
+                  <span className="font-medium text-deep-indigo">
                     {t.speaker === 'candidate' ? candidateName : t.personaName || 'Interviewer'}
                   </span>
                   <span>{t.timestamp}</span>
                 </div>
 
                 <div
-                  className={`rounded-2xl px-4 py-2.5 text-xs leading-relaxed max-w-[90%] shadow-md ${
+                  className={`rounded-[20px] px-4 py-3 text-xs leading-relaxed max-w-[90%] shadow-sm ${
                     t.speaker === 'candidate'
-                      ? 'bg-blue-600 text-white rounded-tr-none'
+                      ? 'bg-deep-indigo text-pure-white rounded-tr-none'
                       : t.personaName === 'Jordan'
-                      ? 'bg-amber-950/50 border border-amber-800/50 text-amber-100 rounded-tl-none'
-                      : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-tl-none'
+                      ? 'bg-yellow-accent/15 text-deep-indigo border border-yellow-accent/40 rounded-tl-none'
+                      : 'bg-light-surface text-deep-indigo border border-pale-indigo/40 rounded-tl-none'
                   }`}
                 >
                   {t.text}
@@ -373,34 +361,35 @@ export function VoiceInterviewRoom({
             <div ref={transcriptsEndRef} />
           </div>
 
-          {/* Candidate Voice/Text Input Bar (For voice or keyboard testing) */}
+          {/* Candidate Voice/Text Input Bar */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               submitCandidateAnswer(candidateInput);
             }}
-            className="mt-3 flex gap-2 border-t border-slate-800/80 pt-3"
+            className="mt-3 flex gap-2 border-t border-pale-indigo/30 pt-4"
           >
             <input
               type="text"
               value={candidateInput}
               onChange={(e) => setCandidateInput(e.target.value)}
-              placeholder="Speak or type candidate answer (e.g. 'We added Redis caching...')"
+              placeholder="Speak or type candidate answer..."
               disabled={callStatus === 'THINKING' || callStatus === 'COMPLETED'}
-              className="flex-1 rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              className="flex-1 rounded-full border border-pale-indigo/60 bg-light-surface px-4 py-2.5 text-xs text-deep-indigo placeholder-muted-indigo focus:border-deep-indigo focus:bg-pure-white focus:outline-none transition-colors"
             />
             <button
               type="submit"
               disabled={!candidateInput.trim() || callStatus === 'THINKING'}
-              className="rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 px-4 py-2 text-xs font-bold text-white transition-all shadow-md shadow-cyan-600/20"
+              className="flex items-center gap-1.5 rounded-full bg-deep-indigo hover:bg-deep-indigo/90 disabled:opacity-50 px-5 py-2.5 text-xs font-medium text-pure-white shadow-cta-yellow transition-all"
             >
-              Send Turn
+              <span>Send</span>
+              <Send className="h-3 w-3" />
             </button>
           </form>
         </div>
       </div>
 
-      {/* Floating Observability Inspector for Hackathon Demo */}
+      {/* Floating Observability Inspector */}
       <ObservabilityDrawer
         currentAgentId={activePersona}
         currentCompetency={activePersona === 'product' ? 'customer_impact' : 'scalability'}

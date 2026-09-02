@@ -72,24 +72,24 @@ export default function RecruiterInterviewConfigPage() {
     : '';
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-8">
+    <div className="min-h-screen bg-light-surface text-deep-indigo font-sora py-12 px-6">
       <div className="mx-auto max-w-4xl space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-6">
+        <div className="flex items-center justify-between border-b border-pale-indigo/40 pb-6">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-1">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-yellow-accent/20 px-3 py-1 text-xs font-medium text-deep-indigo border border-yellow-accent/50 mb-2">
               <Sparkles className="h-3.5 w-3.5" /> Recruiter Control Center
             </div>
-            <h1 className="text-3xl font-extrabold text-white tracking-tight">
+            <h1 className="text-3xl md:text-4xl font-medium text-deep-indigo tracking-tight-section">
               Configure Interview Plan
             </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              Set up job requirements, required competencies, and adaptive interviewer personas.
+            <p className="text-sm text-muted-indigo font-normal mt-1.5">
+              Set up job requirements, select target competencies, and preview adaptive interviewer personas.
             </p>
           </div>
           <Link
             href="/"
-            className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-colors"
+            className="rounded-full border border-pale-indigo/60 bg-pure-white px-5 py-2.5 text-xs font-medium text-deep-indigo hover:border-deep-indigo transition-colors shadow-sm"
           >
             Back to Home
           </Link>
@@ -99,46 +99,46 @@ export default function RecruiterInterviewConfigPage() {
         {!createdSessionId ? (
           <form onSubmit={handleCreateInterview} className="space-y-6">
             {/* Job Details Card */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl space-y-4">
-              <div className="flex items-center gap-2 text-sm font-bold text-white">
-                <Briefcase className="h-4 w-4 text-cyan-400" />
+            <div className="rounded-[35px] border border-pale-indigo/40 bg-pure-white p-8 shadow-card-default space-y-5">
+              <div className="flex items-center gap-2.5 text-base font-medium text-deep-indigo">
+                <Briefcase className="h-5 w-5 text-deep-indigo" />
                 Position Details
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Job Title</label>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-deep-indigo">Job Title</label>
                 <input
                   type="text"
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+                  className="w-full rounded-[16px] border border-pale-indigo/60 bg-light-surface px-4 py-3 text-xs text-deep-indigo placeholder-muted-indigo focus:border-deep-indigo focus:bg-pure-white focus:outline-none transition-colors"
                   required
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Job Description</label>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-deep-indigo">Job Description</label>
                 <textarea
                   rows={3}
                   value={jobDescription}
                   onChange={(e) => setJobDescription(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+                  className="w-full rounded-[16px] border border-pale-indigo/60 bg-light-surface px-4 py-3 text-xs text-deep-indigo placeholder-muted-indigo focus:border-deep-indigo focus:bg-pure-white focus:outline-none transition-colors leading-relaxed"
                   required
                 />
               </div>
             </div>
 
             {/* Competencies Selector Card */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl space-y-4">
-              <div className="flex items-center gap-2 text-sm font-bold text-white">
-                <ShieldCheck className="h-4 w-4 text-emerald-400" />
+            <div className="rounded-[35px] border border-pale-indigo/40 bg-pure-white p-8 shadow-card-default space-y-5">
+              <div className="flex items-center gap-2.5 text-base font-medium text-deep-indigo">
+                <ShieldCheck className="h-5 w-5 text-teal-accent" />
                 Required Competency Model
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-muted-indigo font-normal">
                 Select the target competencies EchoSphere will evaluate during the interview:
               </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
                   { id: 'system_design', label: 'System Design', owner: 'Alex (Technical)' },
                   { id: 'scalability', label: 'Scalability', owner: 'Alex (Technical)' },
@@ -150,23 +150,23 @@ export default function RecruiterInterviewConfigPage() {
                       key={comp.id}
                       type="button"
                       onClick={() => toggleCompetency(comp.id)}
-                      className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${
+                      className={`flex flex-col items-start rounded-[24px] border p-5 text-left transition-all ${
                         isSelected
-                          ? 'border-cyan-500/60 bg-cyan-950/20 shadow-lg shadow-cyan-500/10'
-                          : 'border-slate-800 bg-slate-950/60 opacity-60 hover:opacity-90'
+                          ? 'border-deep-indigo bg-light-surface shadow-card-default ring-2 ring-yellow-accent'
+                          : 'border-pale-indigo/40 bg-pure-white hover:border-pale-indigo'
                       }`}
                     >
                       <div className="flex w-full items-center justify-between">
-                        <span className="text-xs font-bold text-white">{comp.label}</span>
+                        <span className="text-sm font-medium text-deep-indigo">{comp.label}</span>
                         <span
-                          className={`h-4 w-4 rounded-full flex items-center justify-center text-[10px] ${
-                            isSelected ? 'bg-cyan-500 text-black font-bold' : 'border border-slate-700'
+                          className={`h-5 w-5 rounded-full flex items-center justify-center text-xs ${
+                            isSelected ? 'bg-deep-indigo text-pure-white font-medium' : 'border border-pale-indigo'
                           }`}
                         >
-                          {isSelected && <Check className="h-3 w-3" />}
+                          {isSelected && <Check className="h-3 w-3 text-yellow-accent" />}
                         </span>
                       </div>
-                      <span className="mt-2 text-[11px] text-slate-400">Owner: {comp.owner}</span>
+                      <span className="mt-3 text-xs text-muted-indigo font-normal">Owner: {comp.owner}</span>
                     </button>
                   );
                 })}
@@ -174,58 +174,58 @@ export default function RecruiterInterviewConfigPage() {
             </div>
 
             {/* Persona Preview Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-                <div className="flex items-center gap-2 font-bold text-xs text-cyan-400 mb-1">
-                  <Cpu className="h-4 w-4" /> Technical Persona: Alex
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="rounded-[24px] border border-pale-indigo/40 bg-pure-white p-6 shadow-card-default">
+                <div className="flex items-center gap-2 font-medium text-sm text-deep-indigo mb-1.5">
+                  <Cpu className="h-4 w-4 text-teal-accent" /> Technical Persona: Alex
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted-indigo font-normal leading-relaxed">
                   Leads Turn 1 & 2. Probes database architecture, caching strategies, and peak traffic scaling.
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-                <div className="flex items-center gap-2 font-bold text-xs text-amber-400 mb-1">
-                  <Users className="h-4 w-4" /> Product Persona: Jordan
+              <div className="rounded-[24px] border border-pale-indigo/40 bg-pure-white p-6 shadow-card-default">
+                <div className="flex items-center gap-2 font-medium text-sm text-deep-indigo mb-1.5">
+                  <Users className="h-4 w-4 text-yellow-accent" /> Product Persona: Jordan
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted-indigo font-normal leading-relaxed">
                   Takes over Turn 3 via handoff. Probes business metrics, latency drop-off, and customer outcomes.
                 </p>
               </div>
             </div>
 
-            {/* Submit Button */}
+            {/* Submit Button with Yellow Accent Ring */}
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 hover:bg-cyan-500 py-3.5 text-xs font-bold text-white shadow-xl shadow-cyan-600/25 transition-all disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-deep-indigo hover:bg-deep-indigo/90 py-4 text-xs font-medium text-pure-white shadow-cta-yellow transition-all disabled:opacity-50"
             >
-              {isSubmitting ? 'Creating Interview Session...' : 'Generate Candidate Interview Room'}
-              <ArrowRight className="h-4 w-4" />
+              <span>{isSubmitting ? 'Creating Interview Session...' : 'Generate Candidate Interview Room'}</span>
+              <ArrowRight className="h-4 w-4 text-yellow-accent" />
             </button>
           </form>
         ) : (
           /* Success Screen with Candidate URL */
-          <div className="rounded-3xl border border-emerald-500/40 bg-gradient-to-b from-slate-900 via-slate-900/90 to-slate-950 p-8 shadow-2xl space-y-6 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              <Check className="h-7 w-7" />
+          <div className="rounded-[35px] border border-pale-indigo/40 bg-pure-white p-10 shadow-card-default space-y-6 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-teal-accent/20 text-deep-indigo border border-teal-accent/40">
+              <Check className="h-8 w-8 text-deep-indigo" />
             </div>
 
             <div className="space-y-1">
-              <h2 className="text-2xl font-bold text-white">Interview Session Created!</h2>
-              <p className="text-xs text-slate-400">
-                Candidate interview ID: <span className="font-mono text-cyan-400 font-bold">{createdSessionId}</span>
+              <h2 className="text-2xl font-medium text-deep-indigo tracking-tight">Interview Session Created!</h2>
+              <p className="text-xs text-muted-indigo font-normal">
+                Candidate interview ID: <span className="font-medium text-deep-indigo">{createdSessionId}</span>
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-left space-y-2">
-              <span className="text-[10px] font-bold uppercase text-slate-400">Candidate Link</span>
-              <div className="flex items-center gap-2">
+            <div className="rounded-[20px] border border-pale-indigo/40 bg-light-surface p-5 text-left space-y-2">
+              <span className="text-[11px] font-medium uppercase tracking-tight text-muted-indigo">Candidate Link</span>
+              <div className="flex items-center gap-3">
                 <input
                   type="text"
                   readOnly
                   value={candidateUrl}
-                  className="flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-mono text-slate-200"
+                  className="flex-1 rounded-full border border-pale-indigo/50 bg-pure-white px-4 py-2.5 text-xs text-deep-indigo"
                 />
                 <button
                   type="button"
@@ -234,9 +234,9 @@ export default function RecruiterInterviewConfigPage() {
                     setCopied(true);
                     setTimeout(() => setCopied(false), 2000);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 px-3.5 py-2 text-xs font-bold text-white transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-deep-indigo hover:bg-deep-indigo/90 px-5 py-2.5 text-xs font-medium text-pure-white transition-colors"
                 >
-                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? <Check className="h-3.5 w-3.5 text-yellow-accent" /> : <Copy className="h-3.5 w-3.5" />}
                   {copied ? 'Copied' : 'Copy'}
                 </button>
               </div>
@@ -245,14 +245,15 @@ export default function RecruiterInterviewConfigPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
               <Link
                 href={`/candidate/interview/${createdSessionId}/live`}
-                className="inline-flex items-center gap-2 rounded-2xl bg-cyan-600 hover:bg-cyan-500 px-6 py-3 text-xs font-bold text-white shadow-lg shadow-cyan-600/20 transition-all"
+                className="inline-flex items-center gap-2 rounded-full bg-deep-indigo hover:bg-deep-indigo/90 px-7 py-3 text-xs font-medium text-pure-white shadow-cta-yellow transition-all"
               >
-                Enter as Candidate <ExternalLink className="h-4 w-4" />
+                <span>Enter as Candidate</span>
+                <ExternalLink className="h-4 w-4 text-yellow-accent" />
               </Link>
               <button
                 type="button"
                 onClick={() => setCreatedSessionId(null)}
-                className="rounded-2xl border border-slate-700 bg-slate-800 px-6 py-3 text-xs font-semibold text-slate-300 hover:bg-slate-700"
+                className="rounded-full border border-pale-indigo/60 bg-pure-white px-6 py-3 text-xs font-medium text-deep-indigo hover:border-deep-indigo transition-colors shadow-sm"
               >
                 Create Another Interview
               </button>
