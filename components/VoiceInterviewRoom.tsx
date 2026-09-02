@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Send,
   Radio,
+  Zap,
 } from 'lucide-react';
 import { ActivePersonaBadge } from './ActivePersonaBadge';
 import { ObservabilityDrawer } from './ObservabilityDrawer';
@@ -55,12 +56,15 @@ export function VoiceInterviewRoom({
   const [selectedMicrophone, setSelectedMicrophone] = useState<string>('');
   const [audioLevel, setAudioLevel] = useState(25);
   const [isVoiceListening, setIsVoiceListening] = useState(false);
+  const [wasInterrupted, setWasInterrupted] = useState(false);
 
   const transcriptsEndRef = useRef<HTMLDivElement>(null);
   const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const submitRef = useRef<((text: string) => Promise<void>) | null>(null);
+  const callStatusRef = useRef(callStatus);
+  callStatusRef.current = callStatus;
 
   // Auto scroll transcript
   useEffect(() => {
@@ -71,8 +75,8 @@ export function VoiceInterviewRoom({
   useEffect(() => {
     if (callStatus === 'SPEAKING' || callStatus === 'LISTENING') {
       audioIntervalRef.current = setInterval(() => {
-        setAudioLevel(Math.floor(Math.random() * 50) + 25);
-      }, 120);
+        setAudioLevel(Math.floor(Math.random() * 45) + 30);
+      }, 100);
     } else {
       setAudioLevel(15);
       if (audioIntervalRef.current) clearInterval(audioIntervalRef.current);
@@ -122,7 +126,9 @@ export function VoiceInterviewRoom({
       }
 
       utterance.onend = () => {
-        if (onEnd) onEnd();
+        if (callStatusRef.current === 'SPEAKING' || callStatusRef.current === 'HANDOFF') {
+          if (onEnd) onEnd();
+        }
       };
       utterance.onerror = () => {
         if (onEnd) onEnd();
@@ -135,12 +141,11 @@ export function VoiceInterviewRoom({
 
   // Submit Candidate Answer
   const submitCandidateAnswer = async (answerText: string) => {
-    if (!answerText.trim() || callStatus === 'THINKING' || callStatus === 'COMPLETED') return;
+    if (!answerText.trim() || callStatusRef.current === 'THINKING' || callStatusRef.current === 'COMPLETED') return;
 
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (_) {}
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
     }
 
     const candidateTurn: TranscriptTurn = {
@@ -216,7 +221,7 @@ export function VoiceInterviewRoom({
 
   submitRef.current = submitCandidateAnswer;
 
-  // Browser Continuous Speech-to-Text (STT) Setup
+  // Browser Continuous Speech-to-Text (STT) Setup with True Barge-In Support
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const SpeechRecognition =
@@ -230,6 +235,14 @@ export function VoiceInterviewRoom({
     recognition.lang = 'en-US';
 
     recognition.onresult = (event: any) => {
+      // 1. BARGE-IN / INTERRUPTION HANDLING
+      if (callStatusRef.current === 'SPEAKING' || callStatusRef.current === 'HANDOFF') {
+        window.speechSynthesis.cancel();
+        setCallStatus('LISTENING');
+        setWasInterrupted(true);
+        setTimeout(() => setWasInterrupted(false), 2000);
+      }
+
       let interimTranscript = '';
       let finalTranscript = '';
 
@@ -246,27 +259,41 @@ export function VoiceInterviewRoom({
       if (liveText) {
         setCandidateInput(liveText);
 
-        // Auto-submit after candidate finishes phrase / pauses speaking (1.2s silence)
+        // 2. NATURAL VAD (600ms natural conversational pause after speaking)
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = setTimeout(() => {
-          if (liveText.length > 5 && submitRef.current) {
+          if (liveText.length >= 3 && submitRef.current && callStatusRef.current !== 'THINKING') {
             submitRef.current(liveText);
           }
-        }, 1200);
+        }, 650);
       }
     };
 
     recognition.onerror = (event: any) => {
       if (event.error !== 'no-speech') {
-        console.warn('Speech recognition error:', event.error);
+        console.warn('Speech recognition status:', event.error);
       }
     };
 
     recognition.onend = () => {
-      setIsVoiceListening(false);
+      // Auto-restart continuous listening unless muted or completed
+      if (callStatusRef.current !== 'COMPLETED' && !isMuted) {
+        try {
+          recognition.start();
+          setIsVoiceListening(true);
+        } catch (_) {}
+      } else {
+        setIsVoiceListening(false);
+      }
     };
 
     recognitionRef.current = recognition;
+
+    // Start recognition
+    try {
+      recognition.start();
+      setIsVoiceListening(true);
+    } catch (_) {}
 
     return () => {
       try {
@@ -274,24 +301,7 @@ export function VoiceInterviewRoom({
       } catch (_) {}
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
-  }, []);
-
-  // Manage voice listening based on call status and mute
-  useEffect(() => {
-    if (!recognitionRef.current) return;
-
-    if (callStatus === 'LISTENING' && !isMuted) {
-      try {
-        recognitionRef.current.start();
-        setIsVoiceListening(true);
-      } catch (_) {}
-    } else {
-      try {
-        recognitionRef.current.stop();
-        setIsVoiceListening(false);
-      } catch (_) {}
-    }
-  }, [callStatus, isMuted]);
+  }, [isMuted]);
 
   // Initial greeting connection
   useEffect(() => {
@@ -346,7 +356,7 @@ export function VoiceInterviewRoom({
             <h2 className="text-base font-medium text-deep-indigo tracking-tight-card">{jobTitle}</h2>
             <span className="rounded-full bg-yellow-accent/20 px-3 py-0.5 text-xs font-medium text-deep-indigo border border-yellow-accent/50 flex items-center gap-1.5">
               <Radio className="h-3 w-3 text-deep-indigo animate-pulse" />
-              Live Voice Interview
+              Live Conversational Voice (Barge-in Enabled)
             </span>
           </div>
           <p className="text-xs text-muted-indigo mt-0.5">
@@ -411,7 +421,10 @@ export function VoiceInterviewRoom({
               <div
                 className="relative z-10 flex items-center justify-center rounded-full bg-deep-indigo text-pure-white shadow-card-elevated transition-all duration-200 cursor-pointer"
                 onClick={() => {
-                  if (callStatus === 'LISTENING' && candidateInput.trim()) {
+                  if (callStatus === 'SPEAKING') {
+                    window.speechSynthesis.cancel();
+                    setCallStatus('LISTENING');
+                  } else if (candidateInput.trim()) {
                     submitCandidateAnswer(candidateInput);
                   }
                 }}
@@ -435,12 +448,17 @@ export function VoiceInterviewRoom({
               </div>
             </div>
 
-            {/* Subtitle status banner */}
-            <div className="absolute bottom-6 text-center">
+            {/* Subtitle status banner with Barge-in indicator */}
+            <div className="absolute bottom-6 text-center flex flex-col items-center gap-1.5">
+              {wasInterrupted && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 animate-fade-in">
+                  <Zap className="h-3 w-3" /> Barge-in: Interviewer interrupted
+                </span>
+              )}
               <p className="text-xs font-medium text-muted-indigo">
-                {callStatus === 'LISTENING' && (isVoiceListening ? '🎙️ Microphone listening • Speak naturally now' : 'Microphone ready')}
+                {callStatus === 'LISTENING' && '🎙️ Microphone listening • Speak naturally (or interrupt anytime)'}
                 {callStatus === 'THINKING' && 'EchoSphere evaluating answer & deciding next action...'}
-                {callStatus === 'SPEAKING' && `🔊 ${activePersona === 'product' ? 'Jordan' : 'Alex'} is speaking...`}
+                {callStatus === 'SPEAKING' && `🔊 ${activePersona === 'product' ? 'Jordan' : 'Alex'} is speaking... (speak to interrupt)`}
                 {callStatus === 'HANDOFF' && '🔄 Dynamic Persona Handoff in progress...'}
                 {callStatus === 'COMPLETED' && 'Interview concluded. Preparing assessment report.'}
               </p>
@@ -451,7 +469,10 @@ export function VoiceInterviewRoom({
           <div className="flex items-center justify-between rounded-[24px] border border-pale-indigo/40 bg-pure-white p-4 shadow-card-default">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => setIsMuted(!isMuted)}
+                onClick={() => {
+                  if (callStatus === 'SPEAKING') window.speechSynthesis.cancel();
+                  setIsMuted(!isMuted);
+                }}
                 className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-medium transition-all ${
                   isMuted
                     ? 'bg-rose-100 text-rose-700 border border-rose-300'
@@ -463,7 +484,7 @@ export function VoiceInterviewRoom({
               </button>
 
               <span className="text-xs text-muted-indigo font-normal">
-                Continuous Voice Conversation Active
+                Continuous Voice Conversation Active (Full-Duplex)
               </span>
             </div>
 
@@ -538,7 +559,7 @@ export function VoiceInterviewRoom({
               type="text"
               value={candidateInput}
               onChange={(e) => setCandidateInput(e.target.value)}
-              placeholder={isVoiceListening ? '🎙️ Listening... (or type your answer here)' : 'Speak into mic or type answer...'}
+              placeholder={isVoiceListening ? '🎙️ Listening... (Speak naturally or type)' : 'Speak into mic or type answer...'}
               disabled={callStatus === 'THINKING' || callStatus === 'COMPLETED'}
               className="flex-1 rounded-full border border-pale-indigo/60 bg-light-surface px-4 py-2.5 text-xs text-deep-indigo placeholder-muted-indigo focus:border-deep-indigo focus:bg-pure-white focus:outline-none transition-colors"
             />
