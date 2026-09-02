@@ -189,6 +189,16 @@ export function VoiceInterviewRoom({
         let token: string | null = null;
         const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID || '';
 
+        if (!appId) {
+          setErrorMessage(
+            'Agora App ID not configured: Please set NEXT_PUBLIC_AGORA_APP_ID and NEXT_AGORA_APP_CERTIFICATE in .env.local to connect Agora RTC audio.'
+          );
+          setCallStatus('LISTENING');
+          // Still poll session transcript
+          pollIntervalRef.current = setInterval(syncSessionState, 1500);
+          return;
+        }
+
         try {
           const tokenRes = await fetch(
             `/api/generate-agora-token?channel=${encodeURIComponent(channelName)}&uid=${candidateUid}`
