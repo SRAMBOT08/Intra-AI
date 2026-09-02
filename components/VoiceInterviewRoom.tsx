@@ -246,13 +246,13 @@ export function VoiceInterviewRoom({
       if (liveText) {
         setCandidateInput(liveText);
 
-        // Auto-submit after candidate pauses speaking for 2.2 seconds
+        // Auto-submit after candidate finishes phrase / pauses speaking (1.2s silence)
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = setTimeout(() => {
-          if (liveText.length > 8 && submitRef.current) {
+          if (liveText.length > 5 && submitRef.current) {
             submitRef.current(liveText);
           }
-        }, 2200);
+        }, 1200);
       }
     };
 

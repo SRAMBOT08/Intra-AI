@@ -1,13 +1,104 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { callM1Analyze, callM1NextAction } from '@/lib/m1-client';
+import { analyzeAnswer, getNextAction } from '@/lib/m1-client';
 import {
   applyAnswerAnalysis,
   createSession,
   getSession,
   recordTranscriptTurn,
 } from '@/lib/session-store';
-import { executeNextAction } from '@/lib/action-executor';
+import { executeNextAction, ExecutionResult } from '@/lib/action-executor';
 import { getPersona, PERSONAS } from '@/lib/personas';
+import { AgentProfile, AnswerAnalysis, NextAction } from '@/types/echosphere';
+
+/**
+ * Dynamic LLM dialogue generator for Alex (Technical) and Jordan (Product Lead).
+ * Synthesizes natural, non-repetitive dialogue based on NextAction prompt_directive.
+ */
+async function synthesizeInterviewerSpeech(params: {
+  persona: AgentProfile;
+  nextAction: NextAction;
+  execution: ExecutionResult;
+  candidateAnswer: string;
+  analysis: AnswerAnalysis;
+}): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.ECHOSPHERE_LLM_API_KEY;
+  const baseUrl =
+    process.env.ECHOSPHERE_LLM_BASE_URL ||
+    (process.env.GEMINI_API_KEY ? 'https://generativelanguage.googleapis.com/v1beta/openai' : 'https://api.openai.com/v1');
+  const model =
+    process.env.ECHOSPHERE_LLM_MODEL ||
+    (process.env.GEMINI_API_KEY ? 'gemini-2.5-flash' : 'gpt-4o-mini');
+
+  const prefix = params.execution.spokenPrefix || '';
+
+  if (params.nextAction.action === 'COMPLETE') {
+    return `${prefix}Thank you so much for walking through both the technical architecture and product impact today. You've covered all our core competencies thoroughly. That concludes our interview! Our recruiting team will follow up with next steps.`;
+  }
+
+  if (apiKey) {
+    try {
+      const prompt = `You are ${params.persona.display_name}, the ${params.persona.role}.
+Interviewer instructions: ${params.persona.instructions}
+
+The candidate just said:
+"${params.candidateAnswer}"
+
+Meta-Orchestrator decision directive:
+"${params.nextAction.prompt_directive}"
+Target competency: ${params.nextAction.competency_id || 'general'}
+Difficulty: ${params.nextAction.difficulty || 'MEDIUM'}
+${params.analysis.vague ? `Note: The candidate answer was vague regarding: ${params.analysis.vague_reason || 'lack of specifics'}. Probe for concrete details.` : ''}
+${params.analysis.contradiction_detected ? `Note: A contradiction was detected: ${params.analysis.contradiction_details}. Ask a polite clarifying probe.` : ''}
+
+Generate your next spoken response to the candidate.
+Rules:
+- Speak concisely and conversationally (1-2 sentences maximum).
+- Acknowledge their point briefly in natural conversational tone, then ask your focused question.
+- Do NOT repeat questions already asked.
+- Output ONLY the spoken dialogue text.`;
+
+      const res = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+          max_tokens: 150,
+        }),
+        signal: AbortSignal.timeout(6000),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const content = data?.choices?.[0]?.message?.content?.trim();
+        if (content) {
+          return `${prefix}${content}`;
+        }
+      }
+    } catch (e) {
+      console.warn('[CustomLLMAdapter] LLM dialogue synthesis fallback:', e);
+    }
+  }
+
+  // Safe fallback if LLM synthesis times out
+  if (params.nextAction.action === 'SWITCH_AGENT') {
+    return `${prefix}Hello, I'm Jordan, Product Lead! Now that we've covered the technical architecture, let's explore the customer impact and business metrics of these decisions.`;
+  }
+  if (params.analysis.vague) {
+    return `Could you be more specific about the concrete implementation details and metrics you used there?`;
+  }
+  if (params.analysis.contradiction_detected) {
+    return `Just to make sure I understand correctly, could you clarify the difference between what you mentioned earlier and this approach?`;
+  }
+  if (params.nextAction.competency_id === 'scalability') {
+    return `Got it. How does your architecture behave as traffic scales to 50,000 requests per second under peak load?`;
+  }
+  return `Understood. What were the key architectural trade-offs you considered for that approach?`;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,7 +123,6 @@ export async function POST(req: NextRequest) {
       .reverse()
       .find((m: any) => m.role === 'user')?.content || '';
 
-    // If there is a candidate answer, process through Member 1 loop
     let responseText = '';
     let isComplete = false;
 
@@ -43,23 +133,30 @@ export async function POST(req: NextRequest) {
         text: lastUserMessage,
       });
 
-      // 2. Call Member 1 Intelligence (:4005)
-      const currentPersona = getPersona(session.current_agent_id);
+      // 2. Identify last question asked and target competency
+      const lastQuestion =
+        session.transcript_history
+          .slice()
+          .reverse()
+          .find((t) => t.speaker === 'interviewer')?.text ||
+        'Explain your architecture and design decisions.';
+
       const targetCompetency = session.ai_context.missing_competencies[0] || 'system_design';
 
-      const analysis = await callM1Analyze({
-        question: 'Explain your architecture and design decisions.',
+      // 3. Call Member 1 Intelligence (:4005)
+      const analysis = await analyzeAnswer({
+        question: lastQuestion,
         candidate_answer: lastUserMessage,
         target_competencies: [targetCompetency],
         interview_context: session.ai_context,
         answer_id: `ANS-${Date.now()}`,
       });
 
-      // 3. Update session AI context with Intelligence findings
+      // 4. Update session AI context with Intelligence findings
       applyAnswerAnalysis(interviewId, analysis);
 
-      // 4. Call Member 1 Meta-Orchestrator (:4004)
-      const nextAction = await callM1NextAction({
+      // 5. Call Member 1 Meta-Orchestrator (:4004)
+      const nextAction = await getNextAction({
         interview_context: session.ai_context,
         answer_analysis: analysis,
         required_competencies: session.required_competencies,
@@ -67,22 +164,22 @@ export async function POST(req: NextRequest) {
         current_competency: targetCompetency,
       });
 
-      // 5. Execute NextAction (ASK_QUESTION, SWITCH_AGENT, COMPLETE)
+      // 6. Execute NextAction (ASK_QUESTION, SWITCH_AGENT, COMPLETE)
       const execution = executeNextAction(interviewId, nextAction);
       isComplete = execution.isComplete;
 
-      // 6. Synthesize response based on execution result
-      if (execution.activePersonaId === 'product' && nextAction.action === 'SWITCH_AGENT') {
-        responseText = `${execution.spokenPrefix}Thanks Alex! Hello, I'm Jordan, Product Lead. Now that we understand the technical design, could you discuss the customer impact and business metrics of this architecture?`;
-      } else if (execution.isComplete) {
-        responseText = `Thank you so much for walking through both the technical and product aspects of your work. That concludes our interview today. Our recruiting team will be in touch with the next steps!`;
-      } else if (nextAction.competency_id === 'scalability') {
-        responseText = `Got it. How does your caching and database tier behave as traffic scales to 50,000 requests per second under peak load? What bottlenecks did you address?`;
-      } else {
-        responseText = `Understood. Could you elaborate on the key trade-offs and latency considerations in that design?`;
-      }
+      const activePersonaProfile = getPersona(execution.activePersonaId);
 
-      // Record interviewer turn
+      // 7. Dynamically synthesize spoken response using LLM (Gemini)
+      responseText = await synthesizeInterviewerSpeech({
+        persona: activePersonaProfile,
+        nextAction,
+        execution,
+        candidateAnswer: lastUserMessage,
+        analysis,
+      });
+
+      // 8. Record interviewer turn
       recordTranscriptTurn(interviewId, {
         speaker: 'interviewer',
         persona: execution.activePersonaName,
@@ -104,7 +201,6 @@ export async function POST(req: NextRequest) {
       const encoder = new TextEncoder();
       const readable = new ReadableStream({
         start(controller) {
-          // Send OpenAI SSE chunks
           const chunkData = {
             id: `chatcmpl-${Date.now()}`,
             object: 'chat.completion.chunk',
