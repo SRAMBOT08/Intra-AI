@@ -1,6 +1,8 @@
 .DS_Store
 Thumbs.db
 *.log
+node_modules
+node_modules.nosync
 node_modules/
 node_modules.nosync/
 dist/

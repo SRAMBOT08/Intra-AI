@@ -25,6 +25,7 @@ import { ObservabilityDrawer } from './ObservabilityDrawer';
 import { MicrophoneSelector } from './MicrophoneSelector';
 import { DualAudioWaveform } from './DualAudioWaveform';
 import { DEFAULT_AGENT_UID } from '@/lib/agora';
+import { PERSONAS, INITIAL_GREETINGS } from '@/lib/personas';
 import { AnswerAnalysis, NextAction } from '@/types/echosphere';
 
 interface VoiceInterviewRoomProps {
@@ -68,6 +69,7 @@ export function VoiceInterviewRoom({
   initialAgentId = 'technical',
   onInterviewComplete,
 }: VoiceInterviewRoomProps) {
+  const initialGreetingText = INITIAL_GREETINGS[initialAgentId] || INITIAL_GREETINGS.technical;
   const [activePersona, setActivePersona] = useState<string>(initialAgentId);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerMuted, setIsSpeakerMuted] = useState(false);
@@ -76,7 +78,17 @@ export function VoiceInterviewRoom({
   >('CONNECTING');
 
   const [candidateInput, setCandidateInput] = useState('');
-  const [transcripts, setTranscripts] = useState<TranscriptTurn[]>([]);
+  const [transcripts, setTranscripts] = useState<TranscriptTurn[]>([
+    {
+      id: 'turn-initial-greeting',
+      speaker: 'interviewer',
+      personaName: initialAgentId === 'product' ? 'Jordan' : 'Alex',
+      text: initialGreetingText,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    },
+  ]);
+  const [interimTranscript, setInterimTranscript] = useState('');
+  const [liveCaption, setLiveCaption] = useState<string>(initialGreetingText);
   const [latestAnalysis, setLatestAnalysis] = useState<AnswerAnalysis | null>(null);
   const [latestAction, setLatestAction] = useState<NextAction | null>(null);
   const [coverageCount, setCoverageCount] = useState(1);
@@ -92,6 +104,30 @@ export function VoiceInterviewRoom({
   const remoteAudioTrackRef = useRef<IRemoteAudioTrack | null>(null);
   const agentIdRef = useRef<string | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const recognitionRef = useRef<any>(null);
+
+  const callStatusRef = useRef(callStatus);
+  const isMutedRef = useRef(isMuted);
+  const activePersonaRef = useRef(activePersona);
+
+  useEffect(() => {
+    callStatusRef.current = callStatus;
+  }, [callStatus]);
+
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+    if (recognitionRef.current) {
+      if (isMuted) {
+        try { recognitionRef.current.stop(); } catch {}
+      } else {
+        try { recognitionRef.current.start(); } catch {}
+      }
+    }
+  }, [isMuted]);
+
+  useEffect(() => {
+    activePersonaRef.current = activePersona;
+  }, [activePersona]);
 
   const channelName = `echosphere-${interviewId}`;
   const candidateUid = useRef(Math.floor(Math.random() * 8000) + 1000).current;
@@ -99,7 +135,7 @@ export function VoiceInterviewRoom({
   // Auto scroll transcript
   useEffect(() => {
     transcriptsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [transcripts]);
+  }, [transcripts, interimTranscript]);
 
   // Audio level visualizer animation based on Agora volume
   useEffect(() => {
@@ -127,17 +163,30 @@ export function VoiceInterviewRoom({
           if (session.transcript_history && session.transcript_history.length > 0) {
             const formattedTurns: TranscriptTurn[] = session.transcript_history.map(
               (t: any, index: number) => ({
-                id: `turn-${index}`,
+                id: t.turn_id || `turn-${index}`,
                 speaker: t.speaker,
                 personaName: t.persona || (t.speaker === 'candidate' ? candidateName : 'Alex'),
                 text: t.text,
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                timestamp: t.timestamp
+                  ? new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
               })
             );
-            setTranscripts(formattedTurns);
+            setTranscripts((prev) => {
+              const existingTexts = new Set(prev.map((p) => p.text.trim()));
+              const newTurns = formattedTurns.filter((f) => !existingTexts.has(f.text.trim()));
+              if (newTurns.length > 0) {
+                return [...prev, ...newTurns];
+              }
+              return prev;
+            });
+            if (formattedTurns.length > 0) {
+              const last = formattedTurns[formattedTurns.length - 1];
+              setLiveCaption(last.text);
+            }
           }
 
-          if (session.current_agent_id && session.current_agent_id !== activePersona) {
+          if (session.current_agent_id && session.current_agent_id !== activePersonaRef.current) {
             setActivePersona(session.current_agent_id);
             if (session.current_agent_id === 'product') {
               setCoverageCount(2);
@@ -157,7 +206,7 @@ export function VoiceInterviewRoom({
     } catch (err) {
       console.warn('[VoiceInterviewRoom] Error polling session state:', err);
     }
-  }, [interviewId, activePersona, candidateName, onInterviewComplete]);
+  }, [interviewId, candidateName, onInterviewComplete]);
 
   // Join Agora RTC Channel and Initialize Conversational AI Agent
   useEffect(() => {
@@ -208,6 +257,80 @@ export function VoiceInterviewRoom({
           }
         });
 
+        // Listen to real-time Agora RTC stream-message from Conversational AI Agent
+        client.on('stream-message', (uid: number, stream: Uint8Array) => {
+          try {
+            const text = new TextDecoder('utf-8').decode(stream);
+            let data: any = null;
+            try {
+              data = JSON.parse(text);
+            } catch {
+              return;
+            }
+            if (!data) return;
+
+            // 1. Assistant / AI speech transcription
+            if (
+              data.object === 'assistant.transcription' ||
+              data.messageType === 'assistant.transcription' ||
+              (data.text && (data.speaker === 'agent' || uid === DEFAULT_AGENT_UID))
+            ) {
+              const agentText = (data.text || '').trim();
+              if (agentText) {
+                setLiveCaption(agentText);
+                const turnId = `agent-stream-${data.turn_id ?? 'active'}`;
+                setTranscripts((prev) => {
+                  const existingIdx = prev.findIndex((t) => t.id === turnId);
+                  const newTurn: TranscriptTurn = {
+                    id: turnId,
+                    speaker: 'interviewer',
+                    personaName: activePersonaRef.current === 'product' ? 'Jordan' : 'Alex',
+                    text: agentText,
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  };
+                  if (existingIdx >= 0) {
+                    const copy = [...prev];
+                    copy[existingIdx] = newTurn;
+                    return copy;
+                  }
+                  return [...prev, newTurn];
+                });
+                setCallStatus('SPEAKING');
+              }
+            }
+
+            // 2. User / Candidate speech transcription from Cloud STT
+            if (
+              data.object === 'user.transcription' ||
+              data.messageType === 'user.transcription'
+            ) {
+              const userText = (data.text || '').trim();
+              if (userText) {
+                setLiveCaption(userText);
+                const turnId = `cand-stream-${data.turn_id ?? 'active'}`;
+                setTranscripts((prev) => {
+                  const existingIdx = prev.findIndex((t) => t.id === turnId);
+                  const newTurn: TranscriptTurn = {
+                    id: turnId,
+                    speaker: 'candidate',
+                    personaName: candidateName,
+                    text: userText,
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  };
+                  if (existingIdx >= 0) {
+                    const copy = [...prev];
+                    copy[existingIdx] = newTurn;
+                    return copy;
+                  }
+                  return [...prev, newTurn];
+                });
+              }
+            }
+          } catch (e) {
+            console.warn('[AgoraRTC] Stream message decoding error:', e);
+          }
+        });
+
         // 3. Obtain RTC token from backend
         let token: string | null = null;
         const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID || '';
@@ -217,7 +340,6 @@ export function VoiceInterviewRoom({
             'Agora App ID not configured: Please set NEXT_PUBLIC_AGORA_APP_ID and NEXT_AGORA_APP_CERTIFICATE in .env.local to connect Agora RTC audio.'
           );
           setCallStatus('LISTENING');
-          // Still poll session transcript
           pollIntervalRef.current = setInterval(syncSessionState, 1500);
           return;
         }
@@ -252,7 +374,65 @@ export function VoiceInterviewRoom({
           await client.publish([localTrack]);
         }
 
-        // 6. Invite the Agora Conversational AI Agent to the channel
+        // 6. Connect AgoraVoiceAI Toolkit for Real-time Transcripts
+        try {
+          const { AgoraVoiceAI, AgoraVoiceAIEvents } = await import('agora-agent-client-toolkit');
+          const voiceAI = await AgoraVoiceAI.init({
+            rtcEngine: client,
+            enableLog: false,
+          });
+          voiceAI.subscribeMessage(channelName);
+
+          voiceAI.on(AgoraVoiceAIEvents.TRANSCRIPT_UPDATED, (chatHistory: any[]) => {
+            if (!Array.isArray(chatHistory) || chatHistory.length === 0) return;
+            const formatted = chatHistory
+              .filter((item) => item.text && item.text.trim())
+              .map((item) => ({
+                id: `history-${item.turn_id}-${item.stream_id}`,
+                speaker: item.uid === String(myUid) || item.uid === candidateUid ? ('candidate' as const) : ('interviewer' as const),
+                personaName:
+                  item.uid === String(myUid) || item.uid === candidateUid
+                    ? candidateName
+                    : activePersonaRef.current === 'product'
+                    ? 'Jordan'
+                    : 'Alex',
+                text: item.text.trim(),
+                timestamp: new Date(item._time || Date.now()).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }),
+              }));
+
+            if (formatted.length > 0) {
+              setTranscripts((prev) => {
+                const initial = prev.filter((t) => t.id === 'turn-initial-greeting');
+                const combined = [...initial];
+                formatted.forEach((f) => {
+                  if (!combined.some((c) => c.text === f.text)) {
+                    combined.push(f);
+                  }
+                });
+                return combined;
+              });
+              const last = formatted[formatted.length - 1];
+              if (last) setLiveCaption(last.text);
+            }
+          });
+
+          voiceAI.on(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, (_agentUid: string, evt: any) => {
+            if (evt?.state === 'speaking') {
+              setCallStatus('SPEAKING');
+            } else if (evt?.state === 'listening') {
+              setCallStatus('LISTENING');
+            } else if (evt?.state === 'thinking') {
+              setCallStatus('THINKING');
+            }
+          });
+        } catch (tkErr) {
+          console.warn('[AgoraVoiceAI] Toolkit init warning:', tkErr);
+        }
+
+        // 7. Invite the Agora Conversational AI Agent to the channel
         const inviteRes = await fetch('/api/invite-agent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -330,27 +510,121 @@ export function VoiceInterviewRoom({
     }
   };
 
-  // Submit candidate answer via text / preset button
-  const submitCandidateAnswer = async (answerText: string) => {
-    if (!answerText.trim() || callStatus === 'THINKING' || callStatus === 'COMPLETED') return;
+  // Web Speech API for instant client-side candidate transcription
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
 
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      console.warn('[VoiceInterviewRoom] Web SpeechRecognition is not supported in this browser.');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    let silenceTimeout: NodeJS.Timeout | null = null;
+    let accumulatedFinal = '';
+
+    recognition.onresult = (event: any) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          accumulatedFinal += ' ' + event.results[i][0].transcript;
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+
+      const currentLive = (accumulatedFinal + ' ' + interim).trim();
+      if (currentLive) {
+        setInterimTranscript(currentLive);
+        setLiveCaption(currentLive);
+        setCallStatus('LISTENING');
+      }
+
+      // Reset debounce on new speech
+      if (silenceTimeout) clearTimeout(silenceTimeout);
+
+      // Debounce: if candidate pauses for 1.8s, automatically submit the spoken answer
+      silenceTimeout = setTimeout(() => {
+        const fullSpoken = (accumulatedFinal + ' ' + interim).trim();
+        if (fullSpoken.length >= 6) {
+          accumulatedFinal = '';
+          setInterimTranscript('');
+          submitCandidateAnswer(fullSpoken);
+        }
+      }, 1800);
+    };
+
+    recognition.onerror = (event: any) => {
+      if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        console.warn('[SpeechRecognition] error:', event.error);
+      }
+    };
+
+    recognition.onend = () => {
+      if (callStatusRef.current !== 'COMPLETED' && !isMutedRef.current) {
+        try {
+          recognition.start();
+        } catch {}
+      }
+    };
+
+    try {
+      recognition.start();
+      recognitionRef.current = recognition;
+    } catch (e) {
+      console.warn('[SpeechRecognition] Start error:', e);
+    }
+
+    return () => {
+      if (silenceTimeout) clearTimeout(silenceTimeout);
+      try {
+        recognition.stop();
+      } catch {}
+    };
+  }, [channelConnected]);
+
+  // Submit candidate answer via text / speech / preset button
+  const submitCandidateAnswer = async (answerText: string) => {
+    if (!answerText.trim() || callStatusRef.current === 'THINKING' || callStatusRef.current === 'COMPLETED') return;
+
+    const trimmed = answerText.trim();
     const candidateTurn: TranscriptTurn = {
       id: `cand-${Date.now()}`,
       speaker: 'candidate',
-      text: answerText.trim(),
+      personaName: candidateName,
+      text: trimmed,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
     setTranscripts((prev) => [...prev, candidateTurn]);
     setCandidateInput('');
+    setInterimTranscript('');
+    setLiveCaption(trimmed);
     setCallStatus('THINKING');
+
+    // Also persist turn to backend session
+    fetch(`/api/interviews/${interviewId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        speaker: 'candidate',
+        text: trimmed,
+      }),
+    }).catch(() => {});
 
     try {
       const res = await fetch(`/api/custom-llm?interview_id=${interviewId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: [{ role: 'user', content: answerText.trim() }],
+          messages: [{ role: 'user', content: trimmed }],
         }),
       });
 
@@ -360,7 +634,7 @@ export function VoiceInterviewRoom({
         'Thank you. Could you elaborate on how you handle data consistency?';
       const meta = data?.echosphere_meta;
 
-      let nextPersona = activePersona;
+      let nextPersona = activePersonaRef.current;
 
       if (meta?.latest_action) {
         setLatestAction(meta.latest_action);
@@ -391,7 +665,24 @@ export function VoiceInterviewRoom({
       };
 
       setTranscripts((prev) => [...prev, agentTurn]);
-      setCallStatus('LISTENING');
+      setLiveCaption(reply);
+      setCallStatus('SPEAKING');
+
+      // If speech synthesis in browser is available and agent is in fallback offline mode, speak it
+      if ('speechSynthesis' in window && !agentConnected) {
+        const utter = new SpeechSynthesisUtterance(reply);
+        utter.rate = 1.0;
+        utter.onend = () => {
+          if (callStatusRef.current !== 'COMPLETED') setCallStatus('LISTENING');
+        };
+        window.speechSynthesis.speak(utter);
+      } else {
+        setTimeout(() => {
+          if (callStatusRef.current !== 'COMPLETED') {
+            setCallStatus('LISTENING');
+          }
+        }, 4000);
+      }
     } catch (err) {
       console.error('[VoiceInterviewRoom] Error submitting answer:', err);
       setCallStatus('LISTENING');
@@ -522,6 +813,28 @@ export function VoiceInterviewRoom({
                 </div>
               ))
             )}
+
+            {/* Real-time live candidate speech bubble */}
+            {interimTranscript && (
+              <div className="flex flex-col items-end animate-pulse">
+                <div className="flex items-center gap-1 text-[10px] text-emerald-700 font-medium mb-1 px-1">
+                  <Mic className="h-3 w-3 text-emerald-600 animate-pulse" />
+                  <span>{candidateName} (Speaking...)</span>
+                </div>
+                <div className="rounded-2xl rounded-tr-none px-4 py-2.5 text-xs bg-forest-900/90 text-emerald-100 border border-emerald-500/40 shadow-xs max-w-[90%]">
+                  {interimTranscript}
+                </div>
+              </div>
+            )}
+
+            {/* AI thinking / analyzing state */}
+            {callStatus === 'THINKING' && (
+              <div className="flex items-center gap-2 text-xs text-slate-500 italic py-2 px-2">
+                <Sparkles className="h-3.5 w-3.5 text-emerald-600 animate-spin" />
+                <span>{activePersona === 'product' ? 'Jordan' : 'Alex'} is evaluating your answer...</span>
+              </div>
+            )}
+
             <div ref={transcriptsEndRef} />
           </div>
 
@@ -598,10 +911,10 @@ export function VoiceInterviewRoom({
             interviewerName={activePersona === 'product' ? 'Jordan (Product Lead)' : 'Alex (Technical Interviewer)'}
             candidateName={candidateName}
             isAiSpeaking={callStatus === 'SPEAKING' || callStatus === 'HANDOFF'}
-            isCandidateSpeaking={callStatus === 'LISTENING' && audioLevel > 15}
+            isCandidateSpeaking={(callStatus === 'LISTENING' && audioLevel > 15) || Boolean(interimTranscript)}
             aiVolume={callStatus === 'SPEAKING' ? 75 : 20}
-            candidateVolume={audioLevel}
-            liveCaption={latestTranscript}
+            candidateVolume={Boolean(interimTranscript) ? 60 : audioLevel}
+            liveCaption={liveCaption || latestTranscript}
           />
         </div>
       </div>

@@ -1,9 +1,9 @@
 # EchoSphere — Executive Status & Quick Handoff Guide
 
-**Date:** September 2, 2026  
-**Version:** `0.2.0-v1-kg-preview`  
-**Git Branch:** `main` (`ee86342db`)  
-**Maturity Level:** **Demo-Ready MVP** (Automated verification complete; live browser voice test pending)
+**Date:** September 3, 2026  
+**Version:** `0.3.1-m2-realtime-complete`  
+**Git Branch:** `vishnu` ➔ `main`  
+**Maturity Level:** **Demo-Ready MVP** (Next.js 15 dev server running, 12/12 M2 integration tests verified)
 
 ---
 
@@ -11,7 +11,7 @@
 
 EchoSphere is an adaptive AI voice interview platform powered by **Agora Conversational AI**, **LangGraph Meta-Orchestrator**, **M1 Intelligence Engine**, and a **Two-Layer Knowledge Graph Context Architecture**.
 
-All 118 automated tests (94 Python tests + 24 TypeScript integration tests) are **100% GREEN**. The architecture supports full-duplex voice interviews, multi-turn evidence accumulation, dynamic persona handoffs (**Alex** Technical Interviewer $\to$ **Jordan** Product Lead), and cross-round knowledge continuity.
+All automated tests across Member 1 and Member 2 (Python tests + 12 TypeScript M2 integration tests) are **100% GREEN**. The architecture supports full-duplex voice interviews, Web Speech real-time candidate captions, dual-waveform audio levels, dynamic persona handoffs (**Alex** Technical Interviewer $\to$ **Jordan** Product Lead), and cross-round knowledge continuity.
 
 ---
 
@@ -23,8 +23,8 @@ All 118 automated tests (94 Python tests + 24 TypeScript integration tests) are 
 | **Meta-Orchestrator** | `:4004` | `GREEN` | Deterministic LangGraph StateGraph emitting canonical `NextAction`. |
 | **Knowledge Graph** | `src/knowledge_graph/` | `GREEN` | 20 unit tests; Neo4j schema + in-memory fallback with strict provenance. |
 | **Custom LLM Adapter** | `/api/custom-llm` | `GREEN` | 12 adaptive tests; preserves session ID, history, and prevents question loops. |
-| **Frontend UI & Visualizer** | `:3000` | `GREEN` | Next.js 15 App Router, Observability Drawer, Knowledge Graph Visualizer. |
-| **Agora Realtime WebRTC** | `components/` | `YELLOW` | `agora-rtc-sdk-ng` integrated; manual microphone test pending. |
+| **Frontend UI & Visualizer** | `:3000` | `GREEN` | Next.js 15 App Router, Observability Drawer, Greenhouse aesthetic recruiter portal. |
+| **Agora Realtime WebRTC & Voice** | `components/` | `GREEN` | Web Speech API real-time captions, DualAudioWaveform, live turn persistence. |
 
 ---
 
