@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { RtcTokenBuilder, RtcRole } from 'agora-token';
+import * as agoraTokenPkg from 'agora-token';
+
+const RtcTokenBuilder =
+  (agoraTokenPkg as any).RtcTokenBuilder ||
+  (agoraTokenPkg as any).default?.RtcTokenBuilder;
+const RtcRole =
+  (agoraTokenPkg as any).RtcRole ||
+  (agoraTokenPkg as any).default?.RtcRole;
 
 const EXPIRATION_TIME_IN_SECONDS = 3600;
 
