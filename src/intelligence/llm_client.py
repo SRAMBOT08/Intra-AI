@@ -59,23 +59,36 @@ class HTTPLLMClient:
         timeout: float = 15.0,
         max_retries: int = 1,
     ):
+        gemini_key = os.getenv("GEMINI_API_KEY")
         self.api_key = (
             api_key
             or os.getenv("ECHOSPHERE_LLM_API_KEY")
             or os.getenv("OPENAI_API_KEY")
+            or gemini_key
             or ""
+        )
+        is_gemini = bool(gemini_key and not os.getenv("OPENAI_API_KEY") and not os.getenv("ECHOSPHERE_LLM_API_KEY"))
+        default_base_url = (
+            "https://generativelanguage.googleapis.com/v1beta/openai"
+            if is_gemini
+            else "https://api.openai.com/v1"
+        )
+        default_model = (
+            "gemini-2.5-flash"
+            if is_gemini
+            else "gpt-4o"
         )
         self.base_url = (
             base_url
             or os.getenv("ECHOSPHERE_LLM_BASE_URL")
             or os.getenv("OPENAI_BASE_URL")
-            or "https://api.openai.com/v1"
+            or default_base_url
         ).rstrip("/")
         self.model = (
             model
             or os.getenv("ECHOSPHERE_LLM_MODEL")
             or os.getenv("OPENAI_MODEL")
-            or "gpt-4o"
+            or default_model
         )
         self.timeout = timeout
         self.max_retries = max_retries
