@@ -28,6 +28,8 @@ export default function CandidateWelcomePage({
   const [selectedDevice, setSelectedDevice] = useState('');
   const [micVolume, setMicVolume] = useState(0);
   const [micPermissionGranted, setMicPermissionGranted] = useState(false);
+  const streamRef = React.useRef<MediaStream | null>(null);
+  const audioCtxRef = React.useRef<AudioContext | null>(null);
 
   // Fetch session details if available
   useEffect(() => {
@@ -55,8 +57,10 @@ export default function CandidateWelcomePage({
     async function checkMic() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
         setMicPermissionGranted(true);
         audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        audioCtxRef.current = audioCtx;
         const analyser = audioCtx.createAnalyser();
         analyser.fftSize = 64;
         const source = audioCtx.createMediaStreamSource(stream);
@@ -165,6 +169,16 @@ export default function CandidateWelcomePage({
             <div className="space-y-2 w-full max-w-xs">
               <Link
                 href={`/candidate/interview/${id}/live`}
+                onClick={() => {
+                  if (streamRef.current) {
+                    streamRef.current.getTracks().forEach((t) => t.stop());
+                    streamRef.current = null;
+                  }
+                  if (audioCtxRef.current) {
+                    audioCtxRef.current.close().catch(() => {});
+                    audioCtxRef.current = null;
+                  }
+                }}
                 className="w-full inline-flex items-center justify-center gap-2.5 rounded-full bg-[#bef264] hover:bg-[#a3e635] text-emerald-950 px-8 py-3.5 text-sm font-bold tracking-tight shadow-sm hover:shadow-md transition-all group cursor-pointer"
               >
                 <Mic className="h-4 w-4 text-emerald-950 group-hover:scale-110 transition-transform" />

@@ -363,16 +363,41 @@ export function VoiceInterviewRoom({
           await client.join(appId, channelName, token, myUid);
         }
         if (!isMounted) return;
-        setChannelConnected(true);
 
-        // 5. Create and Publish Local Candidate Microphone Track
-        const localTrack = await AgoraRTC.createMicrophoneAudioTrack(
-          selectedMicrophone ? { microphoneId: selectedMicrophone } : undefined
-        );
-        localAudioTrackRef.current = localTrack;
-        if (client.connectionState === 'CONNECTED') {
-          await client.publish([localTrack]);
+        // 5. Create and Publish Local Candidate Microphone Track (Resilient with fallbacks)
+        try {
+          let localTrack: IMicrophoneAudioTrack | null = null;
+          try {
+            localTrack = await AgoraRTC.createMicrophoneAudioTrack(
+              selectedMicrophone ? { microphoneId: selectedMicrophone } : undefined
+            );
+          } catch (firstErr: any) {
+            console.warn('[AgoraRTC] Primary microphone track failed (device in use or unavailable), attempting fallback to default system audio:', firstErr);
+            // Wait 250ms for any background audio handle to release, then retry with default config
+            await new Promise((resolve) => setTimeout(resolve, 250));
+            localTrack = await AgoraRTC.createMicrophoneAudioTrack({
+              AEC: true,
+              ANS: true,
+            });
+          }
+
+          if (localTrack && isMounted) {
+            localAudioTrackRef.current = localTrack;
+            if (client.connectionState === 'CONNECTED') {
+              await client.publish([localTrack]);
+            }
+          }
+        } catch (micErr: any) {
+          console.warn('[AgoraRTC] Local microphone track could not be started by Agora (hardware busy or permissions locked):', micErr);
+          if (isMounted) {
+            setErrorMessage(
+              'Microphone is currently held by another app or tab. You can still hear the interviewers and converse using live speech captions or text input.'
+            );
+          }
         }
+
+        if (!isMounted) return;
+        setChannelConnected(true);
 
         // 6. Connect AgoraVoiceAI Toolkit for Real-time Transcripts
         try {
@@ -575,14 +600,17 @@ export function VoiceInterviewRoom({
       }
     };
 
-    try {
-      recognition.start();
-      recognitionRef.current = recognition;
-    } catch (e) {
-      console.warn('[SpeechRecognition] Start error:', e);
-    }
+    const startTimer = setTimeout(() => {
+      try {
+        recognition.start();
+        recognitionRef.current = recognition;
+      } catch (e) {
+        console.warn('[SpeechRecognition] Start error:', e);
+      }
+    }, 600);
 
     return () => {
+      clearTimeout(startTimer);
       if (silenceTimeout) clearTimeout(silenceTimeout);
       try {
         recognition.stop();
